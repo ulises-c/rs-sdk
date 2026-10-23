@@ -2,7 +2,7 @@
 // Maps BotAction types to actual game client operations
 
 import type { Client, ClientActionResult } from '#/client/Client.js';
-import type { BotAction, NearbyLoc, GroundItem } from './types.js';
+import type { BotAction, NearbyLoc, GroundItem, InterfaceSnapshotState } from './types.js';
 import { getDialogPageId } from './dialog-page.js';
 
 export interface ActionResult {
@@ -19,6 +19,7 @@ export type ActionResultOrPromise = ActionResult | Promise<ActionResult>;
 
 // Interface for on-demand scanning and component discovery (provided by StateCollector)
 export interface ScanProvider {
+    inspectInterface?(): InterfaceSnapshotState;
     scanNearbyLocs(radius?: number): NearbyLoc[];
     scanGroundItems(radius?: number): GroundItem[];
     getPrayerComponentId(prayerIndex: number): number;
@@ -374,6 +375,12 @@ export class ActionExecutor {
                         }
                     };
                 }
+
+                case 'inspectInterface':
+                    if (!this.scanProvider?.inspectInterface) {
+                        return { success: false, message: 'Interface inspection unavailable', phase: 'observation', reason: 'inspection_unavailable' };
+                    }
+                    return { success: true, message: 'Inspected visible interface', phase: 'observation', data: this.scanProvider.inspectInterface() };
 
                 case 'scanNearbyLocs':
                     if (!this.scanProvider) {

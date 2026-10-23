@@ -1000,14 +1000,20 @@ export class BotSDK {
         return this.state?.dialog || null;
     }
 
-    /** Read bounded viewport-interface text/model metadata. Null means no state or an older client; rootId -1 means supported but closed. Inspect truncated/contentResolved before using it. This is observation only, not a guarded-click token. */
-    getInterfaceSnapshot(): InterfaceSnapshotState | null {
-        return this.state?.interface?.snapshot ?? null;
-    }
-
     // ============ On-Demand Scanning ============
     // These methods scan the environment on-demand rather than relying on pushed state
     // Use these for expensive scans of nearby locations and ground items
+
+    /** Inspect visible viewport-interface text/model IDs on demand, without rendering meshes or adding per-tick telemetry. Requires an updated client; throws on unsupported inspection. Check truncated/contentResolved. This is observation only, not a guarded-click token. */
+    async inspectInterface(): Promise<InterfaceSnapshotState> {
+        const result = await this.sendAction({ type: 'inspectInterface', reason: 'SDK' });
+        if (!result.success) throw new Error(`Interface inspection failed: ${result.message}`);
+        const data = result.data;
+        if (data?.version !== 1 || !Number.isInteger(data.rootId) || !Array.isArray(data.components) || typeof data.truncated !== 'boolean') {
+            throw new Error('Unsupported interface inspection response');
+        }
+        return data as InterfaceSnapshotState;
+    }
 
     /**
      * Scan for nearby locations with custom radius. Results are scoped to the

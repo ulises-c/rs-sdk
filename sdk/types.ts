@@ -269,8 +269,6 @@ export interface InterfaceState {
     isOpen: boolean;
     interfaceId: number;
     options: InterfaceOption[];
-    /** Bounded open-interface telemetry; absent on clients predating snapshot version 1. Not a guarded-click token. */
-    snapshot?: InterfaceSnapshotState;
 }
 
 /** Visible viewport-interface metadata collected without rendering or downloading meshes. */
@@ -690,6 +688,7 @@ export type BotAction =
     | { type: 'searchGE'; query: string; reason: string }
     | { type: 'submitCountDialog'; value: number; reason: string }
     | { type: 'scanNearbyLocs'; radius?: number; reason: string }
+    | { type: 'inspectInterface'; reason: string }
     | { type: 'scanGroundItems'; radius?: number; reason: string }
     | { type: 'togglePrayer'; prayerIndex: number; reason: string };
 

@@ -204,7 +204,6 @@
 | `findGroundItem(pattern: string \| RegExp, options?: FindOptions): GroundItem \| null` | Find ground item by name pattern (shortest matching name wins, then nearest; reachable preferred). |
 | `getGroundItems(): GroundItem[]` | Get all ground items. |
 | `getDialog(): DialogState \| null` | Get current dialog state. |
-| `getInterfaceSnapshot(): InterfaceSnapshotState \| null` | Read bounded viewport-interface text/model metadata. Null means no state or an older client; rootId -1 means supported but closed. Inspect truncated/contentResolved before using it. This is observation only, not a guarded-click token. |
 | `getTradeState(): TradeState` | Current player-to-player trade session state. Returns a closed-trade default when no state has arrived or the connected client predates trade support. |
 | `getPrayerState(): PrayerState \| null` | Get current prayer state from world state. |
 | `isPrayerActive(prayer: PrayerName \| number): boolean` | Check if a specific prayer is currently active. |
@@ -218,6 +217,7 @@
 | `async checkBotStatus(): Promise<BotStatus>` | Check bot status via gateway HTTP endpoint. Returns info about whether bot is connected and who else is controlling/observing. |
 | `async launchBrowser(): Promise<void>` | Launch native browser to client URL. Uses the `open` package for cross-platform support (macOS, Windows, Linux, WSL). Falls back to printing the URL if no browser can be opened. |
 | `countInventoryItems(pattern: string \| RegExp): number` | Count total item quantity matching a name pattern. This sums stack sizes across every matching slot. Use `getInventory().filter(...)` when the number of occupied slots is needed. |
+| `async inspectInterface(): Promise<InterfaceSnapshotState>` | Inspect visible viewport-interface text/model IDs on demand, without rendering meshes or adding per-tick telemetry. Requires an updated client; throws on unsupported inspection. Check truncated/contentResolved. This is observation only, not a guarded-click token. |
 | `async clickInterfaceOption(selector: InterfaceOptionSelector): Promise<ActionResult>` | Click exactly one interface option, selected by its state object or by visible text (substring for strings, match for regexes). This dispatches the option's `componentId` and never interprets `InterfaceOption.index` as an array position. |
 | `async dm(targetName: string, text: string, opts: { maxLen?: number; delayTicks?: number } = {}): Promise<ActionResult[]>` | Send a private message of any length, auto-split into chunks like {@link say}. Returns one ActionResult per chunk. |
 | `blockDoorTemporarily(level: number, x: number, z: number, ttlMs: number = 30_000): boolean` | Temporarily exclude a known door from this SDK instance's path queries. The shared collision map is never mutated beyond the synchronous query. |
@@ -400,8 +400,6 @@ interface InterfaceState {
   isOpen: boolean;
   interfaceId: number;
   options: InterfaceOption[];
-  /** Bounded open-interface telemetry; absent on clients predating snapshot version 1. Not a guarded-click token. */
-  snapshot?: InterfaceSnapshotState;
 }
 ```
 

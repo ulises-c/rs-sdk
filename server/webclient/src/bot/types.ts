@@ -376,8 +376,6 @@ export interface InterfaceState {
     isOpen: boolean;
     interfaceId: number;
     options: Array<{ index: number; text: string }>;
-    /** Bounded open-interface telemetry; absent on clients predating snapshot version 1. Not a guarded-click token. */
-    snapshot?: InterfaceSnapshotState;
 }
 
 /** Visible viewport-interface metadata collected without rendering or downloading meshes. */
@@ -564,6 +562,7 @@ export type BotAction =
     | { type: 'submitCountDialog'; value: number; reason: string }
     // On-demand scanning (returns data in action result)
     | { type: 'scanNearbyLocs'; radius?: number; reason: string }
+    | { type: 'inspectInterface'; reason: string }
     | { type: 'scanGroundItems'; radius?: number; reason: string }
     // Prayer toggle
     | { type: 'togglePrayer'; prayerIndex: number; reason: string };

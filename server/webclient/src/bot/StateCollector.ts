@@ -58,6 +58,7 @@ import {
     type CombatEvent,
     type DialogState,
     type InterfaceState,
+    type InterfaceSnapshotState,
     type PrayerState,
     type OpFeedbackState
 } from './types.js';
@@ -387,9 +388,14 @@ export class BotStateCollector implements ScanProvider {
             options = rawOptions.map((opt: any) => ({ index: opt.index, text: opt.text, componentId: opt.componentId }));
         }
 
+        return { isOpen, interfaceId, options };
+    }
+
+    /** Read cached UI metadata only when explicitly requested; never load/render a mesh. */
+    inspectInterface(): InterfaceSnapshotState {
+        const c = this.client as any;
         // Lite owns a per-bot copy-on-write table; never inspect another client's active global.
-        const table = c.interfaces?.list ?? IfType.list;
-        return { isOpen, interfaceId, options, snapshot: collectInterfaceSnapshot(interfaceId, table) };
+        return collectInterfaceSnapshot(c.mainModalId ?? -1, c.interfaces?.list ?? IfType.list);
     }
 
     /**

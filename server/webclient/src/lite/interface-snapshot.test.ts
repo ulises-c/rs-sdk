@@ -5,8 +5,9 @@ import Packet from '#/io/Packet.js';
 import { ServerProt } from '#/io/ServerProt.js';
 import { BotStateCollector } from '#/bot/StateCollector.js';
 import { BotOverlay } from '#/bot/BotOverlay.js';
+import { ActionExecutor } from '#/bot/ActionExecutor.js';
 import type { Client } from '#/client/Client.js';
-import type { BotWorldState } from '#/bot/types.js';
+import type { BotWorldState, InterfaceSnapshotState } from '#/bot/types.js';
 import { captureBaseInterfaces, resetBaseInterfaces } from './interfaces.js';
 import { LiteClient } from './LiteClient.js';
 import { dispatch } from './protocol/incoming.js';
@@ -39,7 +40,13 @@ function feed(client: LiteClient, opcode: number, write: (p: Packet) => void): v
     dispatch(client, opcode, p, length);
 }
 
-test('publishes packet-updated models/text and isolates two lite clients', () => {
+async function inspect(client: LiteClient): Promise<InterfaceSnapshotState> {
+    const result = await client.executeBotAction({ type: 'inspectInterface', reason: 'test' });
+    expect(result.success).toBe(true);
+    return result.data as InterfaceSnapshotState;
+}
+
+test('inspects packet-updated models/text only on demand and isolates two lite clients', async () => {
     const a = makeClient(),
         b = makeClient();
     install(a);
@@ -58,18 +65,20 @@ test('publishes packet-updated models/text and isolates two lite clients', () =>
         });
         feed(client, ServerProt.IF_OPENMAIN, p => p.p2(1));
     }
-    const first = a.collectBotState(1).interface.snapshot;
-    const second = b.collectBotState(1).interface.snapshot;
+    expect('snapshot' in a.collectBotState(1).interface).toBe(false);
+    expect('snapshot' in b.collectBotState(1).interface).toBe(false);
+    const first = await inspect(a);
+    const second = await inspect(b);
     expect(first?.components.find(c => c.id === 2)?.model).toMatchObject({ kind: 'raw', meshId: 100, objectId: null });
     expect(second?.components.find(c => c.id === 2)?.model?.meshId).toBe(200);
     expect(first?.components.find(c => c.id === 3)?.text).toBe('First puzzle');
     expect(second?.components.find(c => c.id === 3)?.text).toBe('Second puzzle');
     feed(a, ServerProt.IF_CLOSE, () => {});
-    expect(a.collectBotState(2).interface.snapshot).toEqual({ version: 1, rootId: -1, components: [], truncated: false });
-    expect(b.collectBotState(2).interface.snapshot?.rootId).toBe(1);
+    expect(await inspect(a)).toEqual({ version: 1, rootId: -1, components: [], truncated: false });
+    expect((await inspect(b)).rootId).toBe(1);
 });
 
-test('preserves shared collector metadata through the browser overlay publication path', () => {
+test('browser and lite share on-demand inspection without per-tick metadata payloads', async () => {
     const client = makeClient();
     install(client);
     feed(client, ServerProt.IF_OPENMAIN, p => p.p2(1));
@@ -81,6 +90,11 @@ test('preserves shared collector metadata through the browser overlay publicatio
     const collector = new BotStateCollector(client as unknown as Client);
     const overlay = BotOverlay.prototype as unknown as { collectWorldState(this: { client: LiteClient; collector: BotStateCollector; serverTick: number }): BotWorldState };
     const state = overlay.collectWorldState.call({ client, collector, serverTick: 1 });
-    expect(state.interface.snapshot).toEqual(client.collectBotState(1).interface.snapshot);
-    expect(state.interface.snapshot?.components.find(c => c.id === 2)?.model?.meshId).toBe(300);
+    expect('snapshot' in state.interface).toBe(false);
+    const executor = new ActionExecutor(client as unknown as Client);
+    executor.setScanProvider(collector);
+    const result = await executor.execute({ type: 'inspectInterface', reason: 'test' });
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual(await inspect(client));
+    expect(result.data.components.find((c: { id: number }) => c.id === 2)?.model?.meshId).toBe(300);
 });
