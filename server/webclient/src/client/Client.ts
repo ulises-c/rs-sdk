@@ -196,10 +196,10 @@ export class Client extends GameShell {
         let acc: number = 0;
         for (let i: number = 0; i < 99; i++) {
             const level: number = i + 1;
-            // Curve shape must match the engine (Player.ts uses level/10.0, our custom curve).
+            // Curve shape must match the engine (Player.ts uses level/7.0, the original curve).
             // NOTE: no *10 here — the engine stores XP in ×10 "fine" units and its table has *10,
             // but the server sends the client REAL xp (÷10), so the client table is in real-xp units.
-            const delta: number = (level + Math.pow(2.0, level / 10.0) * 300.0) | 0;
+            const delta: number = (level + Math.pow(2.0, level / 7.0) * 300.0) | 0;
             acc += delta;
             Client.levelExperience[i] = (acc / 4) | 0;
         }
@@ -8378,8 +8378,7 @@ export class Client extends GameShell {
                 this.out.p1(bufferSize + bufferSize + 3);
             }
 
-            // Always run (previously: this.keyHeld[5] === 1)
-            this.out.p1(1);
+            this.out.p1(this.keyHeld[5] === 1 ? 1 : 0);
 
             this.out.p2(startX + this.mapBuildBaseX);
             this.out.p2(startZ + this.mapBuildBaseZ);

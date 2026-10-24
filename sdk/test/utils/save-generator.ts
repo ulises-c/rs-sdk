@@ -198,7 +198,7 @@ function getCRC32(data: Uint8Array, offset: number, length: number): number {
 function getExpByLevel(level: number): number {
     let xp = 0;
     for (let i = 1; i < level; i++) {
-        xp += Math.floor(i + 300 * Math.pow(2, i / 10));
+        xp += Math.floor(i + 300 * Math.pow(2, i / 7));
     }
     return Math.floor(xp / 4) * 10;  // ×10 to match engine format
 }

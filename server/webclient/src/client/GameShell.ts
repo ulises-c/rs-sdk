@@ -8,7 +8,7 @@ import { sleep } from '#/util/JsUtil.js';
 
 export default abstract class GameShell {
     protected state: number = 0;
-    protected deltime: number = 14; // 30% faster than original 20ms
+    protected deltime: number = 20;
     protected mindel: number = 1;
     protected otim: number[] = new Array(10);
     protected fps: number = 0;
