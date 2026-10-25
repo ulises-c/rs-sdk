@@ -317,6 +317,9 @@ export interface PlayerState {
     isDead: boolean;
     /** Changes after each observed death/respawn cycle. */
     lifeId: number;
+    /** This player's server slot (pid from UPDATE_PID); -1 until known. NPCs facing this player
+     *  have faceEntity = selfSlot + 32768. */
+    selfSlot: number;
     /** Number of respawns observed during this client session. */
     respawnCount: number;
     /** Public game tick when death was last observed, or null if none was observed. */

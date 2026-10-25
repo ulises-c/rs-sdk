@@ -639,7 +639,8 @@ export class BotStateCollector implements ScanProvider {
             isDead,
             lifeId: this.lifeId,
             respawnCount: this.respawnCount,
-            lastDeathTick: this.lastDeathTick
+            lastDeathTick: this.lastDeathTick,
+            selfSlot: typeof c.selfSlot === 'number' ? c.selfSlot : -1
         };
     }
 
