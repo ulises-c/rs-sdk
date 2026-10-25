@@ -107,6 +107,11 @@ export interface NearbyNpc {
     animId: number;
     /** Current spot animation ID (-1 = none) */
     spotanimId: number;
+    /** Last anim the server requested (-1 = none seen). Kept after animId has gone back to -1:
+     *  the lite client retires emotes within a tick. */
+    lastAnimId: number;
+    /** State tick when lastAnimId was requested (null = none, or a client that does not track it). */
+    lastAnimTick: number | null;
     optionsWithIndex: NpcOption[];  // Options with op index (use .map(o => o.text) for display)
     /** Convenience array of option text strings */
     options: string[];
@@ -311,6 +316,11 @@ export interface PlayerState {
     animId: number;
     /** Current spot animation ID (-1 = none). Spot anims are effects like spell impacts, combat hits, etc. */
     spotanimId: number;
+    /** Last anim the server requested (-1 = none seen). Kept after animId has gone back to -1:
+     *  the lite client retires emotes within a tick. */
+    lastAnimId: number;
+    /** State tick when lastAnimId was requested (null = none, or a client that does not track it). */
+    lastAnimTick: number | null;
     /** Combat state tracking */
     combat: PlayerCombatState;
     /** True while the player's hitpoints are zero. */

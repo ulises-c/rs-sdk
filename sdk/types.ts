@@ -39,6 +39,11 @@ export interface PlayerState {
     animId: number;
     /** Current spot animation ID (-1 = none) */
     spotanimId: number;
+    /** Last anim the server requested (-1 = none seen; absent on clients without this field). Kept after animId has gone back to -1:
+     *  the lite client retires emotes within a tick. */
+    lastAnimId?: number;
+    /** State tick when lastAnimId was requested (null = none, or a client that does not track it). */
+    lastAnimTick?: number | null;
     /** Combat state tracking */
     combat: PlayerCombatState;
     /** True while the player's hitpoints are zero. */
@@ -114,6 +119,11 @@ export interface NearbyNpc {
     lastCombatTick: number | null;
     animId: number;
     spotanimId: number;
+    /** Last anim the server requested (-1 = none seen; absent on clients without this field). Kept after animId has gone back to -1:
+     *  the lite client retires emotes within a tick. */
+    lastAnimId?: number;
+    /** State tick when lastAnimId was requested (null = none, or a client that does not track it). */
+    lastAnimTick?: number | null;
     optionsWithIndex: NpcOption[];
     /** Convenience array of option text strings */
     options: string[];

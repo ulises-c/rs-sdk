@@ -22,7 +22,7 @@ import { ServerProt } from '#/io/ServerProt.js';
 
 import { captureBaseInterfaces, resetBaseInterfaces } from './interfaces.js';
 import { LiteClient } from './LiteClient.js';
-import { applyAnimMask } from './protocol/entities.js';
+import { applyAnimMask, noteAnimRequest } from './protocol/entities.js';
 import { dispatch } from './protocol/incoming.js';
 
 /** A LiteClient with no socket: nothing below touches the connection. */
@@ -79,6 +79,7 @@ const SEQ_ONESHOT = 61001; // delays [3,3], plays once: expires on the 7th cycle
 const SEQ_RESET = 61002; // same timing, duplicatebehaviour RESET
 const SEQ_LOOP = 61003; // delays [2,2], loops=1: replays last frame ~99 times
 const SPOT_ID = 61004;
+const SEQ_EMOTE = 61005; // delays all 0 and no frames loaded: what emotes look like on lite
 
 /** Attach a visible npc so the aging loop (which walks npcIds) reaches it. */
 function visibleNpc(c: LiteClient, index = 7): ClientNpc {
@@ -215,5 +216,39 @@ describe('animation expiry', () => {
         dispatch(c, ServerProt.RESET_ANIMS, empty, 0);
         expect(npc.primaryAnim).toBe(-1);
         expect(c.localPlayer!.primaryAnim).toBe(-1);
+    });
+});
+
+describe('last requested anim (lastAnimId)', () => {
+    test('an emote retired within a tick stays readable as lastAnimId with its tick', () => {
+        defineSeq(SEQ_EMOTE, [0, 0, 0, 0, 0, 0]);
+        const c = makeClient('both');
+        const npc = visibleNpc(c);
+        c.notifyGameTick();
+        c.notifyGameTick();
+
+        applyAnimMask(npc, SEQ_EMOTE, 0);
+        noteAnimRequest(c, npc, SEQ_EMOTE);
+        // 30 cycles = 600 ms: the emote is long gone from primaryAnim (the bug)...
+        for (let i = 0; i < 30; i++) {
+            c.tickCycle();
+        }
+        expect(npc.primaryAnim).toBe(-1);
+        // ...but the request is kept, stamped with the tick it arrived on.
+        expect(npc.lastAnimId).toBe(SEQ_EMOTE);
+        expect(npc.lastAnimTick).toBe(2);
+
+        // Collected one tick later, in the state's own tick numbering.
+        c.notifyGameTick();
+        const collector = (c as any).bridge().collector;
+        expect(collector.lastAnimFields(npc, 500)).toEqual({ lastAnimId: SEQ_EMOTE, lastAnimTick: 499 });
+    });
+
+    test('an idle (-1) mask does not clear the last requested anim', () => {
+        defineSeq(SEQ_EMOTE, [0, 0]);
+        const c = makeClient('boti');
+        noteAnimRequest(c, c.localPlayer!, SEQ_EMOTE);
+        noteAnimRequest(c, c.localPlayer!, -1);
+        expect(c.localPlayer!.lastAnimId).toBe(SEQ_EMOTE);
     });
 });

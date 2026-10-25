@@ -125,6 +125,8 @@ export class LiteClient {
     messageSequence: number[] = new TypedArray1d(100, 0);
     resumedPauseButton = false;
     selfSlot = -1;
+    /** Server ticks seen (PLAYER_INFO count); stamps ClientEntity.lastAnimTick. */
+    animTickCount = 0;
     dialogInputOpen = false;
     socialInputOpen = false;
     /** Set false so nothing filters chat; the SDK does its own filtering. */
@@ -431,6 +433,7 @@ export class LiteClient {
             this.tickSpeedMultiplier = Math.max(1, 420 / this.measuredTickInterval);
         }
         this.lastTickTime = now;
+        this.animTickCount++;
 
         this.onGameTickCallback?.();
     }

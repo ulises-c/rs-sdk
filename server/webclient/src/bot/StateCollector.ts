@@ -173,7 +173,7 @@ export class BotStateCollector implements ScanProvider {
             inventory: this.collectInventory(INVENTORY_INTERFACE_ID),
             equipment: this.collectInventory(EQUIPMENT_INTERFACE_ID),
             combatStyle: this.collectCombatStyle(),
-            nearbyNpcs: this.collectNearbyNpcs(clientCycle),
+            nearbyNpcs: this.collectNearbyNpcs(clientCycle, currentTick),
             nearbyPlayers: this.collectNearbyPlayers(clientCycle),
             nearbyLocs: this.collectNearbyLocs(),
             groundItems: this.collectGroundItems(),
@@ -640,7 +640,8 @@ export class BotStateCollector implements ScanProvider {
             lifeId: this.lifeId,
             respawnCount: this.respawnCount,
             lastDeathTick: this.lastDeathTick,
-            selfSlot: typeof c.selfSlot === 'number' ? c.selfSlot : -1
+            selfSlot: typeof c.selfSlot === 'number' ? c.selfSlot : -1,
+            ...this.lastAnimFields(player, currentTick)
         };
     }
 
@@ -899,7 +900,17 @@ export class BotStateCollector implements ScanProvider {
         return items;
     }
 
-    private collectNearbyNpcs(clientCycle: number): NearbyNpc[] {
+    /** lastAnimId/lastAnimTick of an entity, in this state's tick numbering. Clients that
+     *  do not count ticks (browser) report -1/null. */
+    private lastAnimFields(e: { lastAnimId?: number; lastAnimTick?: number }, currentTick: number): { lastAnimId: number; lastAnimTick: number | null } {
+        const ticks = (this.client as any).animTickCount;
+        if (typeof ticks !== 'number' || typeof e.lastAnimId !== 'number' || e.lastAnimId < 0 || typeof e.lastAnimTick !== 'number' || e.lastAnimTick < 0) {
+            return { lastAnimId: -1, lastAnimTick: null };
+        }
+        return { lastAnimId: e.lastAnimId, lastAnimTick: currentTick - Math.max(0, ticks - e.lastAnimTick) };
+    }
+
+    private collectNearbyNpcs(clientCycle: number, currentTick: number = 0): NearbyNpc[] {
         const c = this.client as any;
         const npcs: NearbyNpc[] = [];
         const player = c.localPlayer;
@@ -996,6 +1007,7 @@ export class BotStateCollector implements ScanProvider {
                 lastCombatTick: this.lastNpcCombatTicks.get(npcIndex) ?? null,
                 animId: npc.primaryAnim ?? -1,
                 spotanimId: npc.spotanimId ?? -1,
+                ...this.lastAnimFields(npc, currentTick),
                 optionsWithIndex,
                 options: optionsWithIndex.map(o => o.text),
                 reachable

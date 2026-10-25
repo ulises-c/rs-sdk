@@ -38,6 +38,11 @@ export default abstract class ClientEntity extends ModelSource {
     primaryAnimCycle: number = 0;
     primaryAnimDelay: number = 0;
     primaryAnimLoop: number = 0;
+    /** Last non-idle anim requested by an ANIM update mask (-1 = none yet) and the
+     *  LiteClient.animTickCount when it arrived. Unlike primaryAnim it is never aged out,
+     *  so bots can read short emotes the lite client retires within a tick. */
+    lastAnimId: number = -1;
+    lastAnimTick: number = -1;
     spotanimId: number = -1;
     spotanimFrame: number = 0;
     spotanimCycle: number = 0;

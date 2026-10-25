@@ -30,6 +30,18 @@ import { LOCAL_PLAYER_INDEX, type LiteClient } from '../LiteClient.js';
  * here and shared. Exported so tests can start an animation through exactly the
  * rules the packet path uses. Expiry lives in LiteClient.ageEntityAnim.
  */
+/**
+ * Remember an anim request for the bot state (lastAnimId/lastAnimTick). Emote seqs take
+ * their frame timing from anim frames the lite client never loads (SeqType.getDelay then
+ * returns 1 per frame), so ageEntityAnim retires them within a tick, before any state
+ * frame is collected; this keeps what the server asked for readable.
+ */
+export function noteAnimRequest(c: LiteClient, e: ClientEntity, seqId: number): void {
+    if (seqId === -1) return;
+    e.lastAnimId = seqId;
+    e.lastAnimTick = c.animTickCount;
+}
+
 export function applyAnimMask(e: ClientEntity, seqId: number, delay: number): void {
     if (seqId === e.primaryAnim) {
         e.primaryAnimLoop = 0;
@@ -247,6 +259,7 @@ function decodePlayerExtended(c: LiteClient, player: ClientPlayer, index: number
         }
         const delay = buf.g1();
         applyAnimMask(player, seqId, delay);
+        noteAnimRequest(c, player, seqId);
     }
 
     if ((mask & PlayerUpdate.FACEENTITY) !== 0) {
@@ -504,6 +517,7 @@ function getNpcPosExtended(c: LiteClient, buf: Packet): void {
             }
             const delay = buf.g1();
             applyAnimMask(npc, anim, delay);
+            noteAnimRequest(c, npc, anim);
         }
 
         if ((mask & NpcUpdate.FACEENTITY) !== 0) {
