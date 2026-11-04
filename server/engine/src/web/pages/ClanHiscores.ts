@@ -4,6 +4,7 @@ import { rankName } from '#/engine/clan/ClanRanks.js';
 import type { Clan, ClanStore } from '#/engine/clan/ClanStore.js';
 import Environment from '#/util/Environment.js';
 import { tryParseInt } from '#/util/TryParse.js';
+import { toDisplayName } from '#/util/JString.js';
 import { escapeHtml, ENABLED_SKILLS, QUEST_POINTS_HISCORE_TYPE } from '../utils.js';
 import { CLAN_METRICS, rankClans, rankMembers, totals, metricValue, type ClanMemberStats, type ClanMetric, type ClanSummary } from './ClanBoards.js';
 
@@ -151,10 +152,10 @@ function findClan(clans: ClanSummary[], name: string): ClanSummary | undefined {
 
 function activity(store: ClanStore, clanId: number, limit = 20) {
     return store.log(clanId, limit, ['create', 'join', 'leave', 'kick', 'rank', 'disband']).map(r => {
-        const who = r.actor.replace(/_/g, ' ');
+        const who = toDisplayName(r.actor);
         let text: string;
         const [target, rank] = (r.detail ?? '').split(':');
-        const t = target?.replace(/_/g, ' ');
+        const t = target ? toDisplayName(target) : '';
         if (r.action === 'create') text = `${who} founded the clan`;
         else if (r.action === 'join') text = `${who} joined`;
         else if (r.action === 'leave') text = `${who} left`;
@@ -181,7 +182,7 @@ function clanJson(store: ClanStore, clan: ClanSummary, clans: ClanSummary[], pro
         ranks,
         totals: { totalLevel: t.totalLevel, totalXp: t.totalXp, questPoints: t.qp, bankValue: clan.showBankValues ? t.bank : null, storageValue: t.storage, wealth: t.wealth, averageLevel: t.average },
         memberList: clan.showMembers
-            ? rankMembers(clan, 'overall').map(m => ({ name: m.owner.replace(/_/g, ' '), rank: rankName(m.rank), totalLevel: m.totalLevel, totalXp: m.totalXp, questPoints: m.qp, bankValue: clan.showBankValues ? m.bank : null }))
+            ? rankMembers(clan, 'overall').map(m => ({ name: toDisplayName(m.owner), rank: rankName(m.rank), totalLevel: m.totalLevel, totalXp: m.totalXp, questPoints: m.qp, bankValue: clan.showBankValues ? m.bank : null }))
             : null,
         activity: activity(store, clan.id)
     };
@@ -244,7 +245,7 @@ ${t.bankValue !== null ? `Bank value ${fmt(t.bankValue)} gp &middot; ` : ''}Clan
         body = '<p class="dim">This clan keeps its member list private.</p>';
     } else {
         const rows = rankMembers(clan, metric)
-            .map(m => `<tr><td align="right">${m.position}</td><td><a class="c" href="/hiscores/player/${encodeURIComponent(m.owner)}?profile=${profile}">${escapeHtml(m.owner.replace(/_/g, ' '))}</a></td><td>${rankName(m.rank)}</td><td align="right">${fmt(m.totalLevel)}</td><td align="right">${fmt(m.qp)}</td><td align="right">${clan.showBankValues ? fmt(m.bank) : '-'}</td><td align="right">${formatValue(metric, m.value)}</td></tr>`)
+            .map(m => `<tr><td align="right">${m.position}</td><td><a class="c" href="/hiscores/player/${encodeURIComponent(m.owner)}?profile=${profile}">${escapeHtml(toDisplayName(m.owner))}</a></td><td>${rankName(m.rank)}</td><td align="right">${fmt(m.totalLevel)}</td><td align="right">${fmt(m.qp)}</td><td align="right">${clan.showBankValues ? fmt(m.bank) : '-'}</td><td align="right">${formatValue(metric, m.value)}</td></tr>`)
             .join('\n');
         body = `<p style="font-size:11px">${metricLinks(profile, metric, m => clanHref(clan.name, profile, `&tab=members&metric=${m}`))}</p>
 <table class="list" width="100%"><tr><td align="right"><b>#</b></td><td><b>Member</b></td><td><b>Rank</b></td><td align="right"><b>Total</b></td><td align="right"><b>QP</b></td><td align="right"><b>Bank gp</b></td><td align="right"><b>${metricLabel(metric)}</b></td></tr>${rows}</table>`;

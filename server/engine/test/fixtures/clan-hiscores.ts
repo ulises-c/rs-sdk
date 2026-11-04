@@ -51,9 +51,9 @@ try {
     assert.equal((await get('/api/hiscores/clans?metric=nope')).status, 400);
     const page = await get('/hiscores/clan/stud%20unit');
     assert.equal(page.status, 200);
-    assert.ok(page.text.includes('Founded') && page.text.includes('alice founded the clan') && page.text.includes('bob joined') && page.text.includes('bob is now Sergeant'), 'overview + activity feed');
+    assert.ok(page.text.includes('Founded') && page.text.includes('Alice founded the clan') && page.text.includes('Bob joined') && page.text.includes('Bob is now Sergeant'), 'overview + activity feed');
     const members = await get('/hiscores/clan/stud%20unit?tab=members&metric=overall');
-    assert.ok(members.text.includes('alice') && members.text.includes('Sergeant'));
+    assert.ok(members.text.includes('>Alice</a>') && members.text.includes('Sergeant'), 'display names');
     assert.ok(!members.text.includes('hidden') && !members.text.includes('staffy'), 'hidden and staff accounts are not listed');
     const duo = await get('/hiscores/clan/duo');
     assert.equal(duo.status, 200);
