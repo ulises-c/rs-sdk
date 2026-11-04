@@ -25,6 +25,9 @@ ALLOWED=(
     server/content/pack/interface.pack
     server/content/pack/interface.order
     server/webclient/src/bot/StateCollector.ts
+    # the clan tab icon, painted into the sidebar background (binary; source icon is clan-owned:
+    # content/scripts/clan/sprites/clan_tab_icon.png, stamped by server/engine/test/clan-tab-icon.ts)
+    server/content/sprites/back.png
     sdk/index.ts
     sdk/actions.ts
     sdk/formatter.ts

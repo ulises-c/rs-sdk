@@ -2,7 +2,7 @@
 // native handlers (bank-screen button, storage grid, count dialog, public chat), the SDK porcelain
 // over the encoded hidden state, and the clan hiscore routes. Temp ledger only.
 //   bun run test:clan:integration
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { strict as assert } from 'node:assert';
@@ -336,6 +336,9 @@ try {
     const tabState = (p: P) => collectClanTabState([{ clientCode: LITE_TAB_CLIENTCODE, text: tab(p, 'agent_state'), children: null }], 0);
     ok(CLAN_TAB_CLIENTCODE === LITE_TAB_CLIENTCODE, 'engine and lite client agree on the tab clientcode');
     ok(Component.getId('clan_tab') > 40773, 'clan tab uses a reserved interface id');
+    const { packedMismatches, iconPixels } = await import('./clan-tab-icon.js');
+    const iconMissing = await packedMismatches(readFileSync('data/pack/client/media'));
+    ok(iconMissing.length === 0 && (await iconPixels()).length > 300, `packed backbase2 carries the clan tab icon (${iconMissing.length} pixels missing)`);
     outsider.tabs[3] = -1; // before login.rs2 has set the ordinary tabs
     for (const p of [tester, geometry, outsider]) clanTick(p);
     ok(tester.tabs[CLAN_TAB] === Component.getId('clan_tab') && geometry.tabs[CLAN_TAB] === Component.getId('clan_tab'), 'members get the clan tab in slot 7');

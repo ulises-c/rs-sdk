@@ -166,6 +166,57 @@ try {
     assert.equal(owner.tabs[7], Component.getId('clan_tab'));
     await sidebar(Component.getId('clan_tab'), 'clan-tab');
     await sidebar(Component.getId('friends'), 'friends-tab');
+
+    // The bottom-right of the game frame as the client draws it: sidebar background pieces, the open
+    // tab's interface, the bottom tab row (Client.ts draw order: backbase2, the open tab's red stone,
+    // then side icons 7-12; slot 7 has none, its icon is in backbase2 itself).
+    const media = jag('media');
+    const piece = (name: string, flip?: 'v') => {
+        const s = Pix8.depack(media, name, 0);
+        if (flip === 'v') s.vflip();
+        return s;
+    };
+    const icons = Array.from({ length: 13 }, (_, i) => Pix8.depack(media, 'sideicons', i));
+    const frame = async (iface: number, active: number, name: string) => {
+        const pixels = new Int32Array(765 * 503);
+        Pix2D.setPixels(pixels, 765, 503);
+        for (const [n, x, y] of [
+            ['backvmid2', 516, 205],
+            ['backright2', 743, 205],
+            ['backvmid3', 496, 357],
+            ['backhmid1', 516, 160],
+            ['invback', 553, 205]
+        ] as const)
+            piece(n).plotSprite(x, y);
+        Pix3D.setRenderClipping();
+        if (iface >= 0) client.drawInterface(IfType.list[iface], 553, 205, 0);
+        const bar = new Int32Array(269 * 37);
+        Pix2D.setPixels(bar, 269, 37);
+        piece('backbase2').plotSprite(0, 0);
+        if (active === 7) piece('redstone1', 'v').plotSprite(42, 0);
+        if (active === 8) piece('redstone2', 'v').plotSprite(74, 0);
+        [
+            [74, 2],
+            [102, 3],
+            [137, 4],
+            [174, 2],
+            [201, 2],
+            [226, 2]
+        ].forEach(([x, y], i) => icons[7 + i].plotSprite(x, y));
+        for (let y = 0; y < 37; y++) pixels.set(bar.subarray(y * 269, y * 269 + 269), (466 + y) * 765 + 496);
+        const crop = new Int32Array(269 * 298);
+        for (let y = 0; y < 298; y++) crop.set(pixels.subarray((205 + y) * 765 + 496, (205 + y) * 765 + 765), y * 269);
+        await png(crop, 269, 298, name);
+    };
+    await frame(Component.getId('clan_tab'), 7, 'sidebar-member-clan-open');
+    await frame(Component.getId('friends'), 8, 'sidebar-member-friends-open');
+    // A player outside any clan: the same tab, how-to view.
+    const outsider = load('outsider');
+    outsider.tabs[3] = Component.getId('inventory');
+    clanTick(outsider);
+    assert.equal(outsider.tabs[7], Component.getId('clan_tab'));
+    await frame(Component.getId('clan_tab'), 7, 'sidebar-nonmember-clan-open');
+    await frame(Component.getId('friends'), 8, 'sidebar-nonmember-friends-open');
     console.log('Native client renders written to ' + out);
 } finally {
     clanStore().db?.close?.();
