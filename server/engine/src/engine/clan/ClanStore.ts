@@ -670,4 +670,3 @@ export class ClanStore {
         return bits.join('') + '.';
     }
 }
-

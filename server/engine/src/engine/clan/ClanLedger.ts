@@ -63,4 +63,3 @@ export function clanStore(): ClanStore {
 export function resetClanStore() {
     store = undefined;
 }
-
