@@ -224,7 +224,11 @@ New code only in `engine/src/engine/clan/`, `web/pages/Clan*.ts`, `content/scrip
 - [ ] Clan chat + clan tab (`CLAN_CHAT_ENABLED`): `/` lines go through the same `clanPublicChat` delegation;
       the tab (`clan_tab.if`, friends-list frame) is set natively into sidebar slot 7 from the per-player
       `clanTick` (login.rs2 untouched); presence/roster are in-memory, refreshed on events
-      (`engine/clan/ClanTab.ts`). Slot 7 has no side icon in this client (client change needed for one).
+      (`engine/clan/ClanTab.ts`). Non-members get the tab too, with a how-to view (`clanTabHelp`).
+- [ ] Clan tab icon: painted into `content/sprites/back.png` (the only binary upstream touch; the client has no
+      slot-7 side icon). Source `content/scripts/clan/sprites/clan_tab_icon.png`; after an upstream change to
+      back.png re-stamp with `cd engine && bun test/clan-tab-icon.ts` (`clan-tab-icon.test.ts` fails until then).
+      The icon is visible with the flags off (inert slot) and hidden under the red stone while the tab is open.
 - [ ] State: clan tables (`clan`, `clan_member`, `clan_invite`, `clan_item`, `clan_access`, `clan_cooldown`,
       `clan_log`, `clan_value`, `clan_mgmt`) live in the GE ledger `market.sqlite`; a deposit/withdraw commits the
       player save checkpoint in the same SQLite transaction (`playerSaveStore`). No prisma or save-format change.

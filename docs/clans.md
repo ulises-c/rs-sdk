@@ -55,10 +55,18 @@ Captain 5, General 6, Admin 7, Deputy owner 8, Owner 9.
   online counts and the roster: online members first (rank in green), then offline members (rank in
   red), up to 60 rows (`...and N more`). Built from the friends-list frame. It updates on member
   login/logout, joins, leaves, kicks, rank changes and disband (event-driven, no per-tick ledger reads).
-  This client draws **no icon** for slot 7 (it loads 13 side icons and plots none there), so the tab is
-  clickable but blank until selected; an icon needs a client change (load a 14th `sideicons` sprite and
-  plot it when `sideIcon[7] != -1`) or an edit of the `backbase2` sidebar background, which every
-  player would see, members or not.
+  Players outside a clan get the same tab with a short how-to (`Not in a clan`: `/clan create NAME`,
+  ask a member for an invite then `/clan accept NAME`, `/` lines are clan chat); bots see
+  `state.clan = null` there.
+- **Tab icon:** this client loads 13 side icons and plots none at slot 7, so the icon (three figures,
+  `content/scripts/clan/sprites/clan_tab_icon.png`) is painted into the sidebar background
+  `content/sprites/back.png` (the pack tool cuts `backbase2` out of it): no client code. Re-stamp with
+  `cd server/engine && bun test/clan-tab-icon.ts` (`--check` verifies). Two consequences of baking it
+  into the background: the icon is drawn whatever the flags say, so with `CLAN_CHAT_ENABLED=false` it
+  sits on an inert slot (that is why non-members get the how-to view while the flag is on); and the
+  open tab's red stone is drawn *over* the background, so the open clan tab shows a plain red stone
+  (the icon lies wholly under it, nothing peeks out). Showing the icon on the red stone, or hiding it
+  with the flag off, needs client code (a 14th `sideicons` frame plotted when `sideIcon[7] != -1`).
 
 ## Access rules
 
