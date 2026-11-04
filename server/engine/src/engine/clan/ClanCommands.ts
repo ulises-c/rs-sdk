@@ -1,9 +1,6 @@
 import ObjType from '#/cache/config/ObjType.js';
-import type Player from '#/engine/entity/Player.js';
-import World from '#/engine/World.js';
 import { toDisplayName } from '#/util/JString.js';
 import { parseRank, RANK_WORDS, rankName } from './ClanRanks.js';
-import { clanStorageEnabled, clanStore } from './ClanLedger.js';
 import { ClanError, type ClanStore } from './ClanStore.js';
 
 /**
@@ -62,15 +59,18 @@ export function findItem(name: string): number | undefined {
     return byName!.get(name.toLowerCase());
 }
 
-function tellMembers(store: ClanStore, clanId: number, line: string, except?: string) {
+/** Tells an online player something; World-backed in ClanChat.ts, a no-op in tests. */
+export type ClanNotify = (owner: string, line: string) => void;
+
+function tellMembers(store: ClanStore, notify: ClanNotify, clanId: number, line: string, except?: string) {
     for (const m of store.members(clanId)) {
         if (m.owner === except) continue;
-        World.getPlayerByUsername(m.owner)?.messageGame(line);
+        notify(m.owner, line);
     }
 }
 
 /** Run one command; returns the reply lines. Exposed for tests. */
-export function runClanCommand(store: ClanStore, actor: string, args: string[]): string[] {
+export function runClanCommand(store: ClanStore, actor: string, args: string[], notify: ClanNotify = () => {}): string[] {
     const [verb = 'help', ...rest] = args;
     const arg = rest.join(' ');
     switch (verb) {
@@ -82,24 +82,24 @@ export function runClanCommand(store: ClanStore, actor: string, args: string[]):
         case 'invite': {
             if (!arg) return ['Usage: /clan invite PLAYER'];
             const r = store.invite(actor, arg);
-            World.getPlayerByUsername(r.target)?.messageGame(`${who(actor)} invites you to join the clan ${r.clan.display}. Type /clan accept ${r.clan.display} within 10 minutes.`);
+            notify(r.target, `${who(actor)} invites you to join the clan ${r.clan.display}. Type /clan accept ${r.clan.display} within 10 minutes.`);
             return [`You invited ${who(r.target)} to ${r.clan.display}. The invite lasts 10 minutes.`];
         }
         case 'accept': {
             const clan = store.accept(actor, arg || undefined);
-            tellMembers(store, clan.id, `[Clan] ${who(actor)} joined ${clan.display}.`, actor);
+            tellMembers(store, notify, clan.id, `[Clan] ${who(actor)} joined ${clan.display}.`, actor);
             return [`You joined ${clan.display} as a Recruit. New members can withdraw from the clan storage after ${clan.settings.newMemberHours}h.`];
         }
         case 'leave': {
             const clan = store.leave(actor);
-            tellMembers(store, clan.id, `[Clan] ${who(actor)} left ${clan.display}.`);
+            tellMembers(store, notify, clan.id, `[Clan] ${who(actor)} left ${clan.display}.`);
             return [`You left ${clan.display}. You can join or create another clan in 24h.`];
         }
         case 'kick': {
             if (!arg) return ['Usage: /clan kick PLAYER'];
             const r = store.kick(actor, arg);
-            World.getPlayerByUsername(r.target)?.messageGame(`You were removed from ${r.clan.display}.`);
-            tellMembers(store, r.clan.id, `[Clan] ${who(r.target)} was removed by ${who(actor)}.`, actor);
+            notify(r.target, `You were removed from ${r.clan.display}.`);
+            tellMembers(store, notify, r.clan.id, `[Clan] ${who(r.target)} was removed by ${who(actor)}.`, actor);
             return [`You removed ${who(r.target)} from ${r.clan.display}.`];
         }
         case 'rank': {
@@ -108,7 +108,7 @@ export function runClanCommand(store: ClanStore, actor: string, args: string[]):
             if (!split || !rank) return ['Usage: /clan rank PLAYER RANK (recruit, corporal, sergeant, lieutenant, captain, general, admin, deputy owner, owner)'];
             const r = store.setRank(actor, split.name, rank);
             const delay = r.delayedUntil ? ` The new rights start in ${store.wait(r.delayedUntil)}.` : '';
-            tellMembers(store, r.clan.id, `[Clan] ${who(r.target)} is now ${rankName(r.rank)}.`, actor);
+            tellMembers(store, notify, r.clan.id, `[Clan] ${who(r.target)} is now ${rankName(r.rank)}.`, actor);
             return [`${who(r.target)} is now ${rankName(r.rank)}.${delay}`];
         }
         case 'trust': {
@@ -162,24 +162,4 @@ export function runClanCommand(store: ClanStore, actor: string, args: string[]):
         default:
             return HELP;
     }
-}
-
-/** Public chat hook: true when the text was a clan command (never broadcast). Delegated from MessagePublicHandler. */
-export function clanPublicChat(p: Player, text: string): boolean {
-    if (!clanStorageEnabled()) return false;
-    const args = parseClanCommand(text);
-    if (!args) return false;
-    p.socialProtect = true;
-    let lines: string[];
-    try {
-        lines = runClanCommand(clanStore(), p.username, args);
-    } catch (error) {
-        if (error instanceof ClanError) lines = [error.message];
-        else {
-            console.error('[clan] command failed', error);
-            lines = ['Clan commands are unavailable right now.'];
-        }
-    }
-    for (const line of lines) p.messageGame(line);
-    return true;
 }
