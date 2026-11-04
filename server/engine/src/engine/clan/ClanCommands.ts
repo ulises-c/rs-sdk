@@ -3,7 +3,7 @@ import type Player from '#/engine/entity/Player.js';
 import World from '#/engine/World.js';
 import { toDisplayName } from '#/util/JString.js';
 import { parseRank, RANK_WORDS, rankName } from './ClanRanks.js';
-import { clanStorageEnabled, clanStore } from './ClanRuntime.js';
+import { clanStorageEnabled, clanStore } from './ClanLedger.js';
 import { ClanError, type ClanStore } from './ClanStore.js';
 
 /**

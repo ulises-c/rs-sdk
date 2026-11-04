@@ -14,7 +14,8 @@ import { LoggerEventType } from '#/server/logger/LoggerEventType.js';
 import Environment from '#/util/Environment.js';
 import type { ClanStorageState } from '../../../../../sdk/clan-types.js';
 import { rankName } from './ClanRanks.js';
-import { backpack, clanStorageEnabled, clanStore, playerAccount } from './ClanRuntime.js';
+import { backpack, playerAccount } from './ClanAccount.js';
+import { clanStorageEnabled, clanStore } from './ClanLedger.js';
 import { ClanError, MAX_STACK, type ClanContext, type ClanView } from './ClanStore.js';
 
 /** Hidden JSON state component for bots (reserved client code block 30460+, after the GE's 30400-30451). */
@@ -34,6 +35,7 @@ type Session = {
     input?: Input;
     notice: string;
     error: string | null;
+    errorReason: string | null;
     receipt: ClanStorageState['receipt'];
 };
 const sessions = new WeakMap<Player, Session>();
@@ -102,7 +104,7 @@ export function openClanStorage(p: Player): boolean {
         return false;
     }
     p.closeModal();
-    sessions.set(p, { serial: ++nextSession, revision: 0, actionRevision: 0, storeRevision: -1, clanId: view.clan.id, rows: [], noted: false, notice: '', error: null, receipt: null });
+    sessions.set(p, { serial: ++nextSession, revision: 0, actionRevision: 0, storeRevision: -1, clanId: view.clan.id, rows: [], noted: false, notice: '', error: null, errorReason: null, receipt: null });
     p.invListenOnCom(InvType.getId('inv'), sideInv(), p.uid);
     p.openMainSideModal(root(), sideRoot());
     render(p, view);
@@ -179,6 +181,7 @@ function publish(p: Player, v: ClanView) {
         input: s.input?.kind ?? null,
         notice: s.notice,
         error: s.error,
+        errorReason: s.errorReason,
         receipt: s.receipt
     };
     let json = JSON.stringify(state);
@@ -198,11 +201,13 @@ function publish(p: Player, v: ClanView) {
 function begin(s: Session) {
     s.actionRevision++;
     s.error = null;
+    s.errorReason = null;
     s.notice = '';
     s.receipt = null;
 }
 function fail(p: Player, s: Session, action: string, error: unknown, item?: number) {
     s.error = message(error);
+    s.errorReason = error instanceof ClanError ? error.reason : 'error';
     p.messageGame(s.error);
     try {
         clanStore().refused(p.username, action, error, item, ctx(p));

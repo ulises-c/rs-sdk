@@ -1,16 +1,15 @@
 import { Database } from 'bun:sqlite';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import InvType from '#/cache/config/InvType.js';
 import ObjType from '#/cache/config/ObjType.js';
 import ParamType from '#/cache/config/ParamType.js';
 import { ParamHelper } from '#/cache/config/ParamHelper.js';
-import type Player from '#/engine/entity/Player.js';
 import { playerSaveStore } from '#/engine/market/MarketStore.js';
-import World from '#/engine/World.js';
 import Environment from '#/util/Environment.js';
 import { tryParseBoolean } from '#/util/TryParse.js';
-import { ClanError, ClanStore, type ClanAccount, type ClanItems } from './ClanStore.js';
+import { ClanError, ClanStore, type ClanItems } from './ClanStore.js';
+
+// No World import here: the hiscore pages (also served by the standalone hiscores process) use this module.
 
 /** Feature flags are read here, not in Environment.ts (upstream footprint rule). Off = upstream behaviour. */
 export const clanStorageEnabled = () => tryParseBoolean(process.env.CLAN_STORAGE_ENABLED, false);
@@ -65,22 +64,3 @@ export function resetClanStore() {
     store = undefined;
 }
 
-export const backpack = (p: Player) => p.getInventory(InvType.getId('inv'))!;
-
-/** The actor's real backpack, with the GE's world-wide save checkpoint as the commit point. */
-export function playerAccount(p: Player): ClanAccount {
-    const inv = backpack(p);
-    const before = inv.items.map(i => (i ? { ...i } : null));
-    return {
-        owner: p.username,
-        count: id => inv.getItemCount(id),
-        take: (id, n) => inv.remove(id, n),
-        give: (id, n) => inv.add(id, n),
-        contents: () => inv.itemsFiltered.map(i => ({ id: i.id, count: inv.getItemCount(i.id) })),
-        save: () => {
-            const save = p.save(false);
-            World.checkpointPlayers(p, save);
-        },
-        rollback: () => before.forEach((item, i) => inv.set(i, item))
-    };
-}

@@ -1,4 +1,5 @@
 import { handleMarket } from './pages/market.js';
+import { handleClanHiscores } from './pages/ClanHiscores.js';
 import { register } from 'prom-client';
 import Environment from '#/util/Environment.js';
 import World from '#/engine/World.js';
@@ -118,6 +119,8 @@ async function handleRequest(req: Request, server: Bun.Server, url: URL): Promis
 
             const marketResponse = handleMarket(req, url);
             if (marketResponse) return marketResponse;
+            const clanResponse = await handleClanHiscores(url);
+            if (clanResponse) return clanResponse;
 
             // Engine status endpoint
             if (url.pathname === '/engine-status' || url.pathname === '/engine-status/') {
