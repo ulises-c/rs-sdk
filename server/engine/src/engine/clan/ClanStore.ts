@@ -44,6 +44,8 @@ export type ClanSettings = {
     showMembers: boolean;
     showBankValues: boolean;
     showStorage: boolean;
+    /** Clan chat notices when a member logs in or out on this world. */
+    notices: boolean;
 };
 export const DEFAULT_SETTINGS: ClanSettings = {
     minDeposit: RANK.recruit,
@@ -54,7 +56,8 @@ export const DEFAULT_SETTINGS: ClanSettings = {
     hiscores: true,
     showMembers: true,
     showBankValues: true,
-    showStorage: false
+    showStorage: false,
+    notices: false
 };
 /** Settings only the Owner or Deputy owner may change (clan-hiscores.md section 7). */
 const PRIVACY_SETTINGS = new Set(['hiscores', 'showMembers', 'showBankValues', 'showStorage']);

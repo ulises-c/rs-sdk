@@ -10,6 +10,17 @@ import { ClanError, type ClanStore } from './ClanStore.js';
  */
 export const CLAN_COMMAND = /^[\s/]+clan(?:\s+(.*))?$/i;
 
+/**
+ * OSRS-style clan chat: a public chat line starting with "/" that is not "/clan ...". The word
+ * packer has no "/", so the server sees a leading space; group 1 is the text.
+ */
+export const CLAN_CHAT_LINE = /^[\s/]+(\S.*)$/s;
+
+/** The game message a clan member sees: `[Stud Unit] Cant Pvm: text`. */
+export function clanChatLine(clan: string, sender: string, text: string): string {
+    return `[${clan}] ${sender}: ${text}`;
+}
+
 export function parseClanCommand(text: string): string[] | null {
     const m = CLAN_COMMAND.exec(text.replace(/\s+$/, ''));
     if (!m) return null;

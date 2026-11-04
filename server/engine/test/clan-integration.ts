@@ -10,6 +10,7 @@ const dir = mkdtempSync(join(tmpdir(), 'clan-integration-'));
 process.env.GE_DATABASE = join(dir, 'market.sqlite');
 process.env.CLAN_STORAGE_ENABLED = 'true';
 process.env.CLAN_HISCORES_ENABLED = 'true';
+process.env.CLAN_CHAT_ENABLED = 'true';
 const { default: World } = await import('../src/engine/World.js');
 const { default: Component } = await import('../src/cache/config/Component.js');
 const { default: ObjType } = await import('../src/cache/config/ObjType.js');
@@ -32,6 +33,10 @@ const { default: TextEncoder } = await import('../src/network/game/server/codec/
 const { clanStore, resetClanStore } = await import('../src/engine/clan/ClanLedger.js');
 const { clanTick } = await import('../src/engine/clan/ClanHooks.js');
 const { CLAN_STATE_CLIENTCODE } = await import('../src/engine/clan/ClanStorage.js');
+const { CLAN_TAB, CLAN_TAB_CLIENTCODE } = await import('../src/engine/clan/ClanTab.js');
+const { setClanChatIgnoreLookup, clanChatDrained } = await import('../src/engine/clan/ClanChat.js');
+const { default: WordEnc } = await import('../src/cache/wordenc/WordEnc.js');
+const { PlayerInfoProt } = await import('../src/network/rsbuf/index.js');
 const { handleClanHiscores, clearClanHiscoresCache } = await import('../src/web/pages/ClanHiscores.js');
 // Client-side word packer, as the lite client and the standard client use it.
 const { default: ClientWordPack } = await import('../../webclient/src/wordfilter/WordPack.ts' as string);
@@ -39,11 +44,15 @@ const { default: ClientPacket } = await import('../../webclient/src/io/Packet.ts
 const sdkModule = '../../../sdk/index.ts',
     actionsModule = '../../../sdk/actions.ts',
     clanActionsModule = '../../../sdk/clan-actions.ts',
-    stateModule = '../../webclient/src/bot/clan-storage-state.ts';
+    stateModule = '../../webclient/src/bot/clan-storage-state.ts',
+    tabStateModule = '../../webclient/src/bot/clan-tab-state.ts',
+    clanChatModule = '../../../sdk/clan-chat.ts';
 const { BotSDK } = await import(sdkModule);
 const { BotActions } = await import(actionsModule);
 const { CLAN_BANK_BUTTON_ID, CLAN_STORAGE_ROOT_ID } = await import(clanActionsModule);
 const { collectClanStorageState, CLAN_STORAGE_CLIENTCODE } = await import(stateModule);
+const { collectClanTabState, CLAN_TAB_CLIENTCODE: LITE_TAB_CLIENTCODE } = await import(tabStateModule);
+const { parseClanChatLine, clanChatCommand } = await import(clanChatModule);
 
 let passed = 0;
 const ok = (cond: unknown, what: string) => {
@@ -53,6 +62,10 @@ const ok = (cond: unknown, what: string) => {
 try {
     World.reload();
     World.gameMap.init();
+    WordEnc.load('data/pack');
+    // Ignore lists live in db.sqlite (friend server); the test injects them instead.
+    let ignores = new Map<string, Set<string>>();
+    setClanChatIgnoreLookup(async sender => ignores.get(sender) ?? new Set());
     const inv = InvType.getId('inv'),
         coins = ObjType.getId('coins'),
         logs = ObjType.getId('logs'),
@@ -83,6 +96,8 @@ try {
     let slot = 1;
     const agentState = new Map<string, any>();
     const messages = new Map<string, string[]>();
+    const tabText = new Map<string, Map<number, string>>();
+    const publicHeard = new Map<string, number>();
     const load = (name: string) => {
         const p = PlayerLoading.load(name, new Packet(new Uint8Array()), null);
         p.x = west!.x + 1;
@@ -93,9 +108,14 @@ try {
         World.players[p.slot] = p;
         World.playerLoop.add(BigInt(p.slot), p);
         messages.set(name, []);
+        tabText.set(name, new Map());
+        publicHeard.set(name, 0);
         const stateId = Component.getId('clan_storage:agent_state');
+        const tabRoot = Component.getId('clan_tab');
         p.write = (m: any) => {
             if (m.msg !== undefined) messages.get(name)!.push(m.msg);
+            if (m.constructor?.name === 'MessagePublic') publicHeard.set(name, publicHeard.get(name)! + 1);
+            if (m.component !== undefined && m.text !== undefined && Component.get(m.component)?.rootLayer === tabRoot) tabText.get(name)!.set(m.component, m.text);
             if (m.component !== stateId || !m.text) return;
             // Encode with the real IF_SETTEXT encoder into a socket-sized buffer, then parse like the lite client.
             const packet = Packet.alloc(1);
@@ -310,6 +330,98 @@ try {
     resetClanStore();
     ok(JSON.stringify(clanStore().contents(clanId)) === snapshot, 'ledger reopened with identical contents');
     ok(clanStore().log(clanId, 200).filter(r => r.action === 'deposit' || r.action === 'withdraw').every(r => r.world !== null && r.coord !== null), 'audit rows carry world and coord');
+
+    // ---- clan side tab (slot 7) and clan chat ("/" lines)
+    const tab = (p: P, name: string) => tabText.get(p.username)!.get(Component.getId(`clan_tab:${name}`)) ?? '';
+    const tabState = (p: P) => collectClanTabState([{ clientCode: LITE_TAB_CLIENTCODE, text: tab(p, 'agent_state'), children: null }], 0);
+    ok(CLAN_TAB_CLIENTCODE === LITE_TAB_CLIENTCODE, 'engine and lite client agree on the tab clientcode');
+    ok(Component.getId('clan_tab') > 40773, 'clan tab uses a reserved interface id');
+    for (const p of [tester, geometry, outsider]) clanTick(p);
+    ok(tester.tabs[CLAN_TAB] === Component.getId('clan_tab') && geometry.tabs[CLAN_TAB] === Component.getId('clan_tab'), 'members get the clan tab in slot 7');
+    ok(outsider.tabs[CLAN_TAB] === -1, 'non-members keep slot 7 empty');
+    ok(tab(tester, 'title') === 'Stud Unit' && tab(tester, 'online') === 'Online: 2' && tab(tester, 'members') === 'Members: 2', `tab header: ${tab(tester, 'title')} / ${tab(tester, 'members')} / ${tab(tester, 'online')}`);
+    ok(tab(tester, 'names').split('\\n').join(',') === 'Bot Tester,Bot Geometry', `tab names (online, rank order): ${tab(tester, 'names')}`);
+    ok(tabState(tester)?.onlineCount === 2 && tabState(tester)?.members[1].rankName === 'Captain', 'tab JSON for bots');
+
+    // move the outsider far away: a public broadcast would reach it as MESSAGE_PUBLIC
+    const raven = load('bot_raven');
+    raven.x += 2;
+    outsider.x += 40;
+    say(tester, '/clan invite bot raven');
+    say(raven, '/clan accept stud unit');
+    clanTick(raven);
+    clanTick(tester);
+    ok(tab(tester, 'online') === 'Online: 3' && raven.tabs[CLAN_TAB] === Component.getId('clan_tab'), 'a join updates the tab live');
+    const quiet = (p: P) => {
+        p.chatMessage = null;
+        p.masks = 0;
+    };
+    for (const p of [tester, geometry, raven, outsider]) quiet(p);
+    const heardBefore = publicHeard.get('outsider')!;
+    ok(say(geometry, clanChatCommand('hello stud unit')), 'a "/" line is handled');
+    await clanChatDrained();
+    const line = '[Stud Unit] Bot Geometry: Hello stud unit';
+    ok(lastMsg(tester) === line && lastMsg(raven) === line && lastMsg(geometry) === line, `members (and the speaker) get the clan line: ${lastMsg(tester)}`);
+    ok(!messages.get('outsider')!.includes(line), 'non-members do not');
+    ok(geometry.chatMessage === null && (geometry.masks & PlayerInfoProt.CHAT) === 0, 'no overhead/public chat for the speaker');
+    ok(publicHeard.get('outsider') === heardBefore, 'no out-of-range public broadcast');
+    ok(JSON.stringify(parseClanChatLine(line)) === JSON.stringify({ clan: 'Stud Unit', sender: 'Bot Geometry', text: 'Hello stud unit' }), 'SDK parses the clan line');
+    say(tester, '/clan create nothing');
+    ok(tester.chatMessage === null && (tester.masks & PlayerInfoProt.CHAT) === 0, '/clan commands are never public either');
+    // word filter like public chat
+    const rude = 'what the fuck';
+    say(raven, '/' + rude);
+    await clanChatDrained();
+    ok(lastMsg(tester).startsWith('[Stud Unit] Bot Raven: ') && lastMsg(tester).endsWith(WordEnc.filter('What the fuck')) && WordEnc.filter('What the fuck') !== 'What the fuck', `filtered: ${lastMsg(tester)}`);
+    // ignore: bot_tester ignores bot_raven
+    ignores.set('bot_raven', new Set(['bot_tester']));
+    const testerCount = messages.get('bot_tester')!.length;
+    say(raven, '/anyone there');
+    await clanChatDrained();
+    ok(messages.get('bot_tester')!.length === testerCount && lastMsg(geometry) === '[Stud Unit] Bot Raven: Anyone there', 'a member ignoring the speaker does not get the line');
+    ignores = new Map();
+    // mute: the upstream mute check drops it before the clan hook
+    raven.muted_until = new Date(Date.now() + 60_000);
+    const geoCount = messages.get('bot_geometry')!.length;
+    ok(!say(raven, '/muted words') && raven.chatMessage === null, 'muted players cannot clan chat (nor chat publicly)');
+    await clanChatDrained();
+    ok(messages.get('bot_geometry')!.length === geoCount, 'muted line delivered to nobody');
+    raven.muted_until = null;
+    // non-member
+    say(outsider, '/hello');
+    ok(/not in a clan/.test(lastMsg(outsider)) && outsider.chatMessage === null, `non-member "/" line is not public: ${lastMsg(outsider)}`);
+    // rank change, logout/login (with notices), kick
+    say(tester, '/clan rank bot raven corporal');
+    clanTick(tester);
+    ok(/Corporal/.test(tab(tester, 'ranks')), 'rank change updates the tab');
+    say(tester, '/clan set notices on');
+    raven.unlink(); // logged out: gone from the player loop
+    World.currentTick++;
+    clanTick(tester);
+    ok(tab(tester, 'online') === 'Online: 2' && /@red@Corporal/.test(tab(tester, 'ranks')), `logout: offline member listed in red (${tab(tester, 'ranks')})`);
+    ok(lastMsg(geometry) === '[Stud Unit] Bot Raven has logged out.', `logout notice: ${lastMsg(geometry)}`);
+    World.playerLoop.add(BigInt(raven.slot), raven);
+    World.currentTick++;
+    clanTick(raven);
+    clanTick(tester);
+    ok(tab(tester, 'online') === 'Online: 3' && lastMsg(tester) === '[Stud Unit] Bot Raven has logged in.', 'login: tab and notice');
+    raven.tabs[3] = Component.getId('inventory'); // login.rs2 has set the ordinary tabs
+    raven.tabs[CLAN_TAB] = -1; // a script reset the side tabs
+    clanTick(raven);
+    ok(raven.tabs[CLAN_TAB] === Component.getId('clan_tab'), 'tab restored after a tab reset');
+    say(tester, '/clan kick bot raven');
+    clanTick(tester);
+    ok(raven.tabs[CLAN_TAB] === -1 && tab(tester, 'members') === 'Members: 2', 'kick clears the kicked player\'s tab and updates the roster');
+    say(tester, '/clan set notices off');
+    // flag off: "/" lines are ordinary chat again, the tab goes away
+    process.env.CLAN_CHAT_ENABLED = 'false';
+    quiet(geometry);
+    say(geometry, '/plain chat');
+    ok(geometry.chatMessage !== null, 'CLAN_CHAT_ENABLED=false: "/" lines are upstream public chat');
+    clanTick(geometry);
+    ok(geometry.tabs[CLAN_TAB] === -1, 'CLAN_CHAT_ENABLED=false: no clan tab');
+    process.env.CLAN_CHAT_ENABLED = 'true';
+    outsider.x -= 40;
 
     // ---- leave / rejoin cooldown via chat
     say(geometry, '/clan leave');

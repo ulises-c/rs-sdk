@@ -14,6 +14,8 @@ import { ClanError, ClanStore, type ClanItems } from './ClanStore.js';
 /** Feature flags are read here, not in Environment.ts (upstream footprint rule). Off = upstream behaviour. */
 export const clanStorageEnabled = () => tryParseBoolean(process.env.CLAN_STORAGE_ENABLED, false);
 export const clanHiscoresEnabled = () => tryParseBoolean(process.env.CLAN_HISCORES_ENABLED, false);
+/** Clan chat ("/" lines) and the clan side tab; needs clans (CLAN_STORAGE_ENABLED) too. */
+export const clanChatEnabled = () => clanStorageEnabled() && tryParseBoolean(process.env.CLAN_CHAT_ENABLED, false);
 const intEnv = (name: string, fallback: number) => {
     const n = Number(process.env[name]);
     return Number.isInteger(n) && n > 0 ? n : fallback;
