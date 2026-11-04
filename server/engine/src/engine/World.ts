@@ -1,4 +1,5 @@
 import { tickExchange } from '#/engine/market/GrandExchange.js';
+import { clanTick } from '#/engine/clan/ClanHooks.js';
 import { playerSaveStore } from '#/engine/market/MarketStore.js';
 // stdlib
 import fs from 'fs';
@@ -803,6 +804,7 @@ class World {
                 player.reorient();
                 if (!player.busy() && !player.delayed && !player.loggingOut) player.recoverItems();
                 if (Environment.GE_ENABLED) tickExchange(player);
+                clanTick(player);
 
                 // - run energy
                 player.updateEnergy();

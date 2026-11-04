@@ -1,4 +1,5 @@
 import { PlayerInfoProt } from '#/network/rsbuf/index.js';
+import { clanPublicChat } from '#/engine/clan/ClanHooks.js';
 
 import WordEnc from '#/cache/wordenc/WordEnc.js';
 import Player from '#/engine/entity/Player.js';
@@ -30,6 +31,7 @@ export default class MessagePublicHandler extends ClientGameMessageHandler<Messa
         buf.pos = 0;
         const unpack: string = WordPack.unpack(buf, input.length);
         buf.release();
+        if (clanPublicChat(player, unpack)) return true;
 
         player.chatColour = colour;
         player.chatEffect = effect;
