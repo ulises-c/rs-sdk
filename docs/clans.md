@@ -40,7 +40,7 @@ Captain 5, General 6, Admin 7, Deputy owner 8, Owner 9.
 ## Clan chat and the clan tab (`CLAN_CHAT_ENABLED`)
 
 - **Chat:** a public chat line starting with `/` (that is not `/clan ...`) goes to your clan, OSRS
-  style: every member online on this world gets the game message `[Stud Unit] Cant Pvm: text` (this
+  style: every member online on this world gets the game message `[Stud Unit] Clan Founder: text` (this
   chatbox draws game messages in plain black; it has no colour tags for them and no clan channel).
   Same word filter as public chat; muted players are silent (the mute check runs before the clan hook,
   so `/clan` commands are refused while muted too); members who ignore the speaker don't get the line

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { collectClanTabState, CLAN_TAB_CLIENTCODE } from './clan-tab-state.js';
 
-const state = { seq: 3, clan: { id: 1, name: 'Stud Unit' }, memberCount: 2, onlineCount: 1, members: [{ name: 'Cant Pvm', rank: 9, rankName: 'Owner', online: true }, { name: 'Bot Raven', rank: 1, rankName: 'Recruit', online: false }] };
+const state = { seq: 3, clan: { id: 1, name: 'Stud Unit' }, memberCount: 2, onlineCount: 1, members: [{ name: 'Clan Founder', rank: 9, rankName: 'Owner', online: true }, { name: 'Clan Member', rank: 1, rankName: 'Recruit', online: false }] };
 
 describe('clan tab state reader', () => {
     test('finds the hidden JSON under the slot-7 interface', () => {

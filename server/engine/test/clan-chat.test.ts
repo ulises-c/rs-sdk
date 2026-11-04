@@ -47,14 +47,14 @@ describe('clan chat lines on the wire', () => {
         expect(chat('/meet at varrock west, 5 min!').text).toBe('Meet at varrock west, 5 min!');
     });
     test('the game message format', () => {
-        expect(clanChatLine('Stud Unit', 'Cant Pvm', 'Hi')).toBe('[Stud Unit] Cant Pvm: Hi');
+        expect(clanChatLine('Stud Unit', 'Clan Founder', 'Hi')).toBe('[Stud Unit] Clan Founder: Hi');
     });
 });
 
 const member = (owner: string, rank: number): ClanMember => ({ owner, clan_id: 1, rank, prev_rank: rank, joined: 0, rank_since: 0, invited_by: null, trusted: 0 });
 
 describe('clan tab content', () => {
-    const members = [member('cant_pvm', 9), member('bot_tester', 5), member('bot_perky', 3), member('bot_geometry', 1)];
+    const members = [member('clan_founder', 9), member('bot_tester', 5), member('member_one', 3), member('bot_geometry', 1)];
     test('online first in rank order, offline after in red, counts', () => {
         const online = new Map([
             ['bot_geometry', { displayName: 'Bot Geometry' }],
@@ -64,7 +64,7 @@ describe('clan tab content', () => {
         expect(c.title).toBe('Stud Unit');
         expect(c.members).toBe('Members: 4');
         expect(c.online).toBe('Online: 2');
-        expect(c.names.split('\\n')).toEqual(['Bot Tester', 'Bot Geometry', 'Cant Pvm', 'Bot Perky']);
+        expect(c.names.split('\\n')).toEqual(['Bot Tester', 'Bot Geometry', 'Clan Founder', 'Member One']);
         expect(c.ranks.split('\\n')).toEqual(['Captain', 'Recruit', '@red@Owner', '@red@Sergeant']);
         expect(c.state).toMatchObject({ seq: 4, clan: { id: 1, name: 'Stud Unit' }, memberCount: 4, onlineCount: 2 });
         expect(c.state.members.map(m => m.online)).toEqual([true, true, false, false]);

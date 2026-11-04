@@ -344,24 +344,24 @@ try {
     ok(tabState(tester)?.onlineCount === 2 && tabState(tester)?.members[1].rankName === 'Captain', 'tab JSON for bots');
 
     // move the outsider far away: a public broadcast would reach it as MESSAGE_PUBLIC
-    const raven = load('bot_raven');
-    raven.x += 2;
+    const recruit = load('clan_member');
+    recruit.x += 2;
     outsider.x += 40;
-    say(tester, '/clan invite bot raven');
-    say(raven, '/clan accept stud unit');
-    clanTick(raven);
+    say(tester, '/clan invite clan member');
+    say(recruit, '/clan accept stud unit');
+    clanTick(recruit);
     clanTick(tester);
-    ok(tab(tester, 'online') === 'Online: 3' && raven.tabs[CLAN_TAB] === Component.getId('clan_tab'), 'a join updates the tab live');
+    ok(tab(tester, 'online') === 'Online: 3' && recruit.tabs[CLAN_TAB] === Component.getId('clan_tab'), 'a join updates the tab live');
     const quiet = (p: P) => {
         p.chatMessage = null;
         p.masks = 0;
     };
-    for (const p of [tester, geometry, raven, outsider]) quiet(p);
+    for (const p of [tester, geometry, recruit, outsider]) quiet(p);
     const heardBefore = publicHeard.get('outsider')!;
     ok(say(geometry, clanChatCommand('hello stud unit')), 'a "/" line is handled');
     await clanChatDrained();
     const line = '[Stud Unit] Bot Geometry: Hello stud unit';
-    ok(lastMsg(tester) === line && lastMsg(raven) === line && lastMsg(geometry) === line, `members (and the speaker) get the clan line: ${lastMsg(tester)}`);
+    ok(lastMsg(tester) === line && lastMsg(recruit) === line && lastMsg(geometry) === line, `members (and the speaker) get the clan line: ${lastMsg(tester)}`);
     ok(!messages.get('outsider')!.includes(line), 'non-members do not');
     ok(geometry.chatMessage === null && (geometry.masks & PlayerInfoProt.CHAT) === 0, 'no overhead/public chat for the speaker');
     ok(publicHeard.get('outsider') === heardBefore, 'no out-of-range public broadcast');
@@ -370,48 +370,48 @@ try {
     ok(tester.chatMessage === null && (tester.masks & PlayerInfoProt.CHAT) === 0, '/clan commands are never public either');
     // word filter like public chat
     const rude = 'what the fuck';
-    say(raven, '/' + rude);
+    say(recruit, '/' + rude);
     await clanChatDrained();
-    ok(lastMsg(tester).startsWith('[Stud Unit] Bot Raven: ') && lastMsg(tester).endsWith(WordEnc.filter('What the fuck')) && WordEnc.filter('What the fuck') !== 'What the fuck', `filtered: ${lastMsg(tester)}`);
-    // ignore: bot_tester ignores bot_raven
-    ignores.set('bot_raven', new Set(['bot_tester']));
+    ok(lastMsg(tester).startsWith('[Stud Unit] Clan Member: ') && lastMsg(tester).endsWith(WordEnc.filter('What the fuck')) && WordEnc.filter('What the fuck') !== 'What the fuck', `filtered: ${lastMsg(tester)}`);
+    // ignore: bot_tester ignores clan_member
+    ignores.set('clan_member', new Set(['bot_tester']));
     const testerCount = messages.get('bot_tester')!.length;
-    say(raven, '/anyone there');
+    say(recruit, '/anyone there');
     await clanChatDrained();
-    ok(messages.get('bot_tester')!.length === testerCount && lastMsg(geometry) === '[Stud Unit] Bot Raven: Anyone there', 'a member ignoring the speaker does not get the line');
+    ok(messages.get('bot_tester')!.length === testerCount && lastMsg(geometry) === '[Stud Unit] Clan Member: Anyone there', 'a member ignoring the speaker does not get the line');
     ignores = new Map();
     // mute: the upstream mute check drops it before the clan hook
-    raven.muted_until = new Date(Date.now() + 60_000);
+    recruit.muted_until = new Date(Date.now() + 60_000);
     const geoCount = messages.get('bot_geometry')!.length;
-    ok(!say(raven, '/muted words') && raven.chatMessage === null, 'muted players cannot clan chat (nor chat publicly)');
+    ok(!say(recruit, '/muted words') && recruit.chatMessage === null, 'muted players cannot clan chat (nor chat publicly)');
     await clanChatDrained();
     ok(messages.get('bot_geometry')!.length === geoCount, 'muted line delivered to nobody');
-    raven.muted_until = null;
+    recruit.muted_until = null;
     // non-member
     say(outsider, '/hello');
     ok(/not in a clan/.test(lastMsg(outsider)) && outsider.chatMessage === null, `non-member "/" line is not public: ${lastMsg(outsider)}`);
     // rank change, logout/login (with notices), kick
-    say(tester, '/clan rank bot raven corporal');
+    say(tester, '/clan rank clan member corporal');
     clanTick(tester);
     ok(/Corporal/.test(tab(tester, 'ranks')), 'rank change updates the tab');
     say(tester, '/clan set notices on');
-    raven.unlink(); // logged out: gone from the player loop
+    recruit.unlink(); // logged out: gone from the player loop
     World.currentTick++;
     clanTick(tester);
     ok(tab(tester, 'online') === 'Online: 2' && /@red@Corporal/.test(tab(tester, 'ranks')), `logout: offline member listed in red (${tab(tester, 'ranks')})`);
-    ok(lastMsg(geometry) === '[Stud Unit] Bot Raven has logged out.', `logout notice: ${lastMsg(geometry)}`);
-    World.playerLoop.add(BigInt(raven.slot), raven);
+    ok(lastMsg(geometry) === '[Stud Unit] Clan Member has logged out.', `logout notice: ${lastMsg(geometry)}`);
+    World.playerLoop.add(BigInt(recruit.slot), recruit);
     World.currentTick++;
-    clanTick(raven);
+    clanTick(recruit);
     clanTick(tester);
-    ok(tab(tester, 'online') === 'Online: 3' && lastMsg(tester) === '[Stud Unit] Bot Raven has logged in.', 'login: tab and notice');
-    raven.tabs[3] = Component.getId('inventory'); // login.rs2 has set the ordinary tabs
-    raven.tabs[CLAN_TAB] = -1; // a script reset the side tabs
-    clanTick(raven);
-    ok(raven.tabs[CLAN_TAB] === Component.getId('clan_tab'), 'tab restored after a tab reset');
-    say(tester, '/clan kick bot raven');
+    ok(tab(tester, 'online') === 'Online: 3' && lastMsg(tester) === '[Stud Unit] Clan Member has logged in.', 'login: tab and notice');
+    recruit.tabs[3] = Component.getId('inventory'); // login.rs2 has set the ordinary tabs
+    recruit.tabs[CLAN_TAB] = -1; // a script reset the side tabs
+    clanTick(recruit);
+    ok(recruit.tabs[CLAN_TAB] === Component.getId('clan_tab'), 'tab restored after a tab reset');
+    say(tester, '/clan kick clan member');
     clanTick(tester);
-    ok(raven.tabs[CLAN_TAB] === -1 && tab(tester, 'members') === 'Members: 2', 'kick clears the kicked player\'s tab and updates the roster');
+    ok(recruit.tabs[CLAN_TAB] === -1 && tab(tester, 'members') === 'Members: 2', 'kick clears the kicked player\'s tab and updates the roster');
     say(tester, '/clan set notices off');
     // flag off: "/" lines are ordinary chat again, the tab goes away
     process.env.CLAN_CHAT_ENABLED = 'false';

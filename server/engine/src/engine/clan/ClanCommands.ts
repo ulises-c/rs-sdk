@@ -16,7 +16,7 @@ export const CLAN_COMMAND = /^[\s/]+clan(?:\s+(.*))?$/i;
  */
 export const CLAN_CHAT_LINE = /^[\s/]+(\S.*)$/s;
 
-/** The game message a clan member sees: `[Stud Unit] Cant Pvm: text`. */
+/** The game message a clan member sees: `[Stud Unit] Clan Founder: text`. */
 export function clanChatLine(clan: string, sender: string, text: string): string {
     return `[${clan}] ${sender}: ${text}`;
 }

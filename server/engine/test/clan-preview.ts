@@ -114,29 +114,29 @@ try {
         await png(pixels, 190, 261, name);
     };
 
-    const owner = load('cant_pvm');
+    const owner = load('clan_founder');
     const a = load('bot_tester');
     const b = load('bot_geometry');
     const store = clanStore();
-    store.create('cant_pvm', 'Stud Unit');
+    store.create('clan_founder', 'Stud Unit');
     for (const [who, rank] of [
         ['bot_tester', 5],
         ['bot_geometry', 3]
     ] as const) {
-        store.invite('cant_pvm', who);
+        store.invite('clan_founder', who);
         store.accept(who);
-        store.trust('cant_pvm', who);
-        store.setRank('cant_pvm', who, rank);
+        store.trust('clan_founder', who);
+        store.setRank('clan_founder', who, rank);
     }
-    for (const name of ['bot_perky', 'bot_explorer', 'bot_raven', 'bot_jackal', 'bot_hyena']) {
-        store.invite('cant_pvm', name);
+    for (const name of ['member_one', 'member_two', 'clan_member', 'member_three', 'member_four']) {
+        store.invite('clan_founder', name);
         store.accept(name);
     }
     const inv = InvType.getId('inv');
     const items = ['coins', 'lobster', 'logs', 'iron_ore', 'coal', 'rune_platelegs', 'swordfish', 'oak_logs', 'mithril_bar', 'lawrune', 'naturerune', 'bones', 'cow_hide'];
     const ids = items.map(n => ObjType.getId(n));
     // Storage rows written directly (display fixture only; deposits are covered by clan-integration.ts).
-    const clanId = store.member('cant_pvm')!.clan_id;
+    const clanId = store.member('clan_founder')!.clan_id;
     ids.slice(0, 11).forEach((id, i) => store.db.query('INSERT INTO clan_item(clan_id,item,count,seq) VALUES(?,?,?,?)').run(clanId, id, i === 0 ? 1_250_000 : 40 + i * 17, i + 1));
     store.db.query('UPDATE clan SET revision=revision+1 WHERE id=?').run(clanId);
     for (const [i, id] of ids.entries()) owner.invAdd(inv, id, ObjType.get(id).stackable ? 25 + i : 1);
@@ -156,7 +156,7 @@ try {
     clanButton(owner, Component.getId('clan_storage:mode'));
     await screen('clan_storage', 'clan_storage_side', 'clan-storage-note');
     // A new Recruit sees the status line (new-member wait) under the title.
-    const raven = load('bot_raven');
+    const raven = load('clan_member');
     raven.write = owner.write;
     assert(openClanStorage(raven));
     await screen('clan_storage', 'clan_storage_side', 'clan-storage-new-member');
