@@ -217,6 +217,14 @@ New code only in `engine/src/engine/clan/`, `web/pages/Clan*.ts`, `content/scrip
       (Clans sidebar link, player-page "Clan:" line), `webclient/src/bot/StateCollector.ts` (`clanStorage`),
       `sdk/index.ts` (`getClanStorageState`), `sdk/actions.ts` (clan methods, `openBank` checks `bank.isOpen`,
       `NEVER_AUTO_CLOSE`), `sdk/formatter.ts` (state section), `bank_main.if` (button), `interface.pack/.order`.
+- [ ] Storage screen = a copy of `bank_main.if` (`clan_storage.if`, same `com_N` graphics, fonts and grid; title,
+      capacity line, Deposit inv/Bank boxes in place of Swap/Insert). The Item/Note boxes have no varp: the lit
+      box is a hidden layer the engine shows (`mode_on`, `mode_item_on`), so no config-archive change.
+      `test/clan-layout.test.ts` pins the copy; `bun test/clan-preview.ts DIR` renders bank vs storage vs tab.
+- [ ] Clan chat + clan tab (`CLAN_CHAT_ENABLED`): `/` lines go through the same `clanPublicChat` delegation;
+      the tab (`clan_tab.if`, friends-list frame) is set natively into sidebar slot 7 from the per-player
+      `clanTick` (login.rs2 untouched); presence/roster are in-memory, refreshed on events
+      (`engine/clan/ClanTab.ts`). Slot 7 has no side icon in this client (client change needed for one).
 - [ ] State: clan tables (`clan`, `clan_member`, `clan_invite`, `clan_item`, `clan_access`, `clan_cooldown`,
       `clan_log`, `clan_value`, `clan_mgmt`) live in the GE ledger `market.sqlite`; a deposit/withdraw commits the
       player save checkpoint in the same SQLite transaction (`playerSaveStore`). No prisma or save-format change.
@@ -239,13 +247,18 @@ Reserved (fixed since 289; upstream `377-wip` tops out at interface 18785 / varp
       `interface.order` before `grand_exchange_side` so each root stays contiguous
       (`interface.pack` + same ids in `interface.order`). Free: the interface format lists
       component ids explicitly, so the gap costs no bytes. Ids must stay below 65535 (the format's
-      root marker). Add new custom interfaces after 40773.
-- [ ] **Clan storage interfaces 40754–40773** — `bank_main:clan_storage` **40754** (the button, a
+      root marker). Add new custom interfaces after 40901.
+- [ ] **Clan interfaces 40754–40901** — `bank_main:clan_storage` **40754** (the button, a
       text child) inside the hidden layer `bank_main:clan_storage_layer` **40773** (both listed in
-      `interface.order` right after bank_main's last component 8133); `clan_storage` root **40755** …
-      `clan_storage:agent_state` **40770**; `clan_storage_side` **40771**, `clan_storage_side:inv`
-      **40772**. Hidden JSON state clientcode **30460** (`ClanStorage.ts` `CLAN_STATE_CLIENTCODE`,
-      `webclient/src/bot/clan-storage-state.ts`).
+      `interface.order` right after bank_main's last component 8133); `clan_storage` root **40755**
+      (kept: `title` 40759, `capacity` 40760, `close` 40761, `items` 40762, `inv` 40763, `rank` 40764,
+      `mode` 40766 = the Note box, `deposit_inv` 40767, `bank` 40768, `agent_metadata` 40769,
+      `agent_state` 40770; 40756–40758 and 40765 retired, never released), the copied bank components
+      and Item/Note layers **40774–40872**; `clan_storage_side` **40771**, `clan_storage_side:inv` **40772**;
+      `clan_tab` root **40873** … `clan_tab:agent_state` **40901** (each root contiguous in
+      `interface.order`). Hidden JSON state clientcodes **30460** (storage, `ClanStorage.ts`,
+      `webclient/src/bot/clan-storage-state.ts`) and **30461** (clan tab, `ClanTabContent.ts`,
+      `webclient/src/bot/clan-tab-state.ts`). Next free: 40902.
 - [ ] **Varps 1000+** — `pvp_death_mark` **1000**. Saves store varps by id, so a fixed id means no
       more save migrations. Cost: per-player `vars`/`varsString` arrays are sized to the max id.
       `PlayerLoading.load` still moves a value found at **358** (its 274 id) to `pvp_death_mark`;
