@@ -47,6 +47,8 @@ export interface ClanStorageState {
     input: 'withdraw' | 'deposit' | null;
     notice: string;
     error: string | null;
+    /** Machine-readable refusal: rank, cooldown, full, capacity, not_storable, empty, stale, not_member, ... */
+    errorReason: string | null;
     receipt: {
         token: number;
         kind: 'deposit' | 'withdraw' | 'depositInventory';

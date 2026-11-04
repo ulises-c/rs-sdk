@@ -1,4 +1,5 @@
 import type { GEState } from '../../../../sdk/ge-types.js';
+import type { ClanStorageState } from '../../../../sdk/clan-types.js';
 // types.ts - Bot SDK Type Definitions
 // All interfaces, constants, and type definitions for the Bot SDK
 
@@ -430,6 +431,8 @@ export interface BotState {
     bank: BankState;
     trade: TradeState;
     ge?: GEState | null;
+    /** Null outside the clan storage screen; absent on older clients. */
+    clanStorage?: ClanStorageState | null;
     inGame: boolean;
     /** Recent combat events (damage, kills) - bounded to last ~50 ticks */
     combatEvents: CombatEvent[];

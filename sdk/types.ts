@@ -1,4 +1,5 @@
 import type { GEState } from './ge-types';
+import type { ClanStorageState } from './clan-types';
 // Re-export all types from the agent types module
 // This file provides the full type definitions for remote SDK users
 
@@ -586,6 +587,8 @@ export interface BotWorldState {
     trade?: TradeState;
     /** Null outside the exchange; absent on older clients. */
     ge?: GEState | null;
+    /** Null outside the clan storage screen; absent on older clients. */
+    clanStorage?: ClanStorageState | null;
     modalOpen: boolean;
     modalInterface: number;
     combatStyle?: CombatStyleState;

@@ -1,5 +1,7 @@
 import type { GEState } from './ge-types';
 export type { GEState, GEOffer, GEOfferRequest, GEActionResult } from './ge-types';
+import type { ClanStorageState } from './clan-types';
+export type { ClanStorageState, ClanStorageItem, ClanStorageResult } from './clan-types';
 import { MarketClient, type GEAvailability, type MarketItems, type MarketQuote, type MarketHistory, type MarketItemsOptions, type MarketItemOptions, type MarketHistoryOptions } from './market';
 export { MarketClient, GEUnavailableError } from './market';
 export type { GEAvailability, MarketItems, MarketQuote, MarketHistory, MarketSort, MarketDays, MarketItemsOptions, MarketItemOptions, MarketHistoryOptions } from './market';
@@ -641,6 +643,11 @@ export class BotSDK {
     /** Private GE state while at an open physical exchange. Null when closed or unsupported. */
     getGEState(): GEState | null {
         return this.state?.modalOpen ? this.state.ge ?? null : null;
+    }
+
+    /** Clan storage screen state (opened from the bank screen's Clan storage button). Null when closed or unsupported. */
+    getClanStorageState(): ClanStorageState | null {
+        return this.state?.modalOpen ? this.state.clanStorage ?? null : null;
     }
 
     /** Filter the open in-game GE catalogue. Success means dispatch; wait for the acknowledged query. */
