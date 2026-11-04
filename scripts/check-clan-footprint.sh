@@ -6,7 +6,7 @@
 # after the branch is rebased onto a newer upstream.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-first=$(git log --reverse --format=%H --diff-filter=A -- server/engine/src/engine/clan | head -1)
+first=$(git log --reverse --format=%H --diff-filter=A -- server/engine/src/engine/clan | sed -n 1p || true)
 base=${1:-${first:+$(git rev-parse "$first^")}}
 [ -n "$base" ] || { echo "no clan commits found; pass BASE" >&2; exit 2; }
 
@@ -31,7 +31,7 @@ ALLOWED=(
     # documentation and package wiring (no runtime code)
     server/PATCHES.md
     sdk/API.md
-    server/engine/package.json
+    package.json
 )
 
 fail=0
@@ -39,7 +39,9 @@ echo "Upstream files touched since ${base:0:9}:"
 while IFS= read -r file; do
     [[ $file =~ $OWNED ]] && continue
     stat=$(git diff --shortstat "$base" HEAD -- "$file" | sed 's/^ *//')
-    if printf '%s\n' "${ALLOWED[@]}" | grep -qxF "$file"; then
+    allowed=0
+    for a in "${ALLOWED[@]}"; do [ "$a" = "$file" ] && allowed=1; done
+    if [ "$allowed" = 1 ]; then
         echo "  ok    $file  ($stat)"
     else
         echo "  NEW   $file  ($stat)"

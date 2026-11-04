@@ -50,6 +50,8 @@ const sideRoot = () => Component.getId('clan_storage_side');
 const sideInv = () => Component.getId('clan_storage_side:inv');
 const bankRoot = () => Component.getId('bank_main');
 const bankButton = () => Component.getId('bank_main:clan_storage');
+/** Only layers can be hidden in this client revision: the button sits in a hidden layer. */
+const bankButtonLayer = () => Component.getId('bank_main:clan_storage_layer');
 
 function ctx(p: Player): ClanContext {
     return { world: Environment.NODE_ID, coord: CoordGrid.packCoord(p.level, p.x, p.z) };
@@ -67,7 +69,7 @@ function message(error: unknown): string {
 // ------------------------------------------------------------------ bank screen button
 
 function setBankButton(p: Player, visible: boolean) {
-    const id = bankButton();
+    const id = bankButtonLayer();
     if (id >= 0) p.write(new IfSetHide(id, !visible));
 }
 

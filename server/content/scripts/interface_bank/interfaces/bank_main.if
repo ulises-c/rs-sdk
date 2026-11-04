@@ -871,10 +871,19 @@ shadowed=yes
 text=Swap
 colour=0xFF981F
 
-[clan_storage]
-type=text
+[clan_storage_layer]
+type=layer
 x=40
 y=32
+width=72
+height=11
+hide=yes
+
+[clan_storage]
+layer=clan_storage_layer
+type=text
+x=0
+y=0
 width=72
 height=11
 font=p11_full
@@ -884,4 +893,3 @@ colour=0xFF981F
 overcolour=0xFFFFFF
 buttontype=normal
 option=Clan storage
-hide=yes
