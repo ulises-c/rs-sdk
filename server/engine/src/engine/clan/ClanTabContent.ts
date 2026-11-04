@@ -44,3 +44,32 @@ export function clanTabContent(clan: Pick<Clan, 'id' | 'display'>, members: Clan
     };
 }
 
+
+/**
+ * What a player outside any clan sees in the clan tab (feature on): how to start or join one. The
+ * same components as the roster (no extra interface), with an empty bot state (state.clan = null).
+ */
+export function clanTabHelp() {
+    const lines = [
+        'You are not in a clan.',
+        '',
+        '@yel@Start a clan:',
+        '/clan create NAME',
+        '',
+        '@yel@Join a clan:',
+        'Ask a member to invite',
+        'you, then type:',
+        '/clan accept NAME',
+        '',
+        '@yel@Clan chat:',
+        'Start a line with /'
+    ];
+    return {
+        title: 'Not in a clan',
+        members: 'Type the commands in',
+        online: 'the public chat box.',
+        names: lines.join('\\n'),
+        ranks: '',
+        agent_state: ''
+    };
+}

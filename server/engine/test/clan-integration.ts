@@ -336,9 +336,19 @@ try {
     const tabState = (p: P) => collectClanTabState([{ clientCode: LITE_TAB_CLIENTCODE, text: tab(p, 'agent_state'), children: null }], 0);
     ok(CLAN_TAB_CLIENTCODE === LITE_TAB_CLIENTCODE, 'engine and lite client agree on the tab clientcode');
     ok(Component.getId('clan_tab') > 40773, 'clan tab uses a reserved interface id');
+    outsider.tabs[3] = -1; // before login.rs2 has set the ordinary tabs
     for (const p of [tester, geometry, outsider]) clanTick(p);
     ok(tester.tabs[CLAN_TAB] === Component.getId('clan_tab') && geometry.tabs[CLAN_TAB] === Component.getId('clan_tab'), 'members get the clan tab in slot 7');
-    ok(outsider.tabs[CLAN_TAB] === -1, 'non-members keep slot 7 empty');
+    ok(outsider.tabs[CLAN_TAB] === -1, 'non-member: no clan tab before the ordinary tabs are up');
+    outsider.tabs[3] = Component.getId('inventory'); // login.rs2 has set the ordinary tabs
+    clanTick(outsider);
+    ok(outsider.tabs[CLAN_TAB] === Component.getId('clan_tab'), 'non-members get the clan tab too (its icon is in the sidebar background)');
+    ok(tab(outsider, 'title') === 'Not in a clan' && /\/clan create NAME/.test(tab(outsider, 'names')) && /\/clan accept NAME/.test(tab(outsider, 'names')), `non-member help view: ${tab(outsider, 'title')} / ${tab(outsider, 'names')}`);
+    ok(tab(outsider, 'members') !== '' && tab(outsider, 'ranks') === '' && tabState(outsider) === null, 'help view: no roster, no bot state (state.clan = null)');
+    const helpWrites = tabText.get(outsider.username)!.size;
+    tabText.get(outsider.username)!.clear();
+    clanTick(outsider);
+    ok(tabText.get(outsider.username)!.size === 0 && helpWrites > 0, 'help view is sent once, not every tick');
     ok(tab(tester, 'title') === 'Stud Unit' && tab(tester, 'online') === 'Online: 2' && tab(tester, 'members') === 'Members: 2', `tab header: ${tab(tester, 'title')} / ${tab(tester, 'members')} / ${tab(tester, 'online')}`);
     ok(tab(tester, 'names').split('\\n').join(',') === 'Bot Tester,Bot Geometry', `tab names (online, rank order): ${tab(tester, 'names')}`);
     ok(tabState(tester)?.onlineCount === 2 && tabState(tester)?.members[1].rankName === 'Captain', 'tab JSON for bots');
@@ -411,7 +421,7 @@ try {
     ok(recruit.tabs[CLAN_TAB] === Component.getId('clan_tab'), 'tab restored after a tab reset');
     say(tester, '/clan kick clan member');
     clanTick(tester);
-    ok(recruit.tabs[CLAN_TAB] === -1 && tab(tester, 'members') === 'Members: 2', 'kick clears the kicked player\'s tab and updates the roster');
+    ok(recruit.tabs[CLAN_TAB] === Component.getId('clan_tab') && tab(recruit, 'title') === 'Not in a clan' && tabState(recruit) === null && tab(tester, 'members') === 'Members: 2', 'kick turns the kicked player\'s tab into the help view and updates the roster');
     say(tester, '/clan set notices off');
     // flag off: "/" lines are ordinary chat again, the tab goes away
     process.env.CLAN_CHAT_ENABLED = 'false';

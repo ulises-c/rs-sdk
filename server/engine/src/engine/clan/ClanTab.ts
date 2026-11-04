@@ -3,17 +3,19 @@ import type Player from '#/engine/entity/Player.js';
 import World from '#/engine/World.js';
 import IfSetText from '#/network/game/server/model/IfSetText.js';
 import { clanChatEnabled, clanStore } from './ClanLedger.js';
-import { clanTabContent } from './ClanTabContent.js';
+import { clanTabContent, clanTabHelp } from './ClanTabContent.js';
 
 /**
  * The clan side tab (sidebar slot 7, the empty bottom-left slot of this revision; login.rs2 sets
- * 0-6 and 8-13) and the online roster behind it. Event-driven: a member's arrival or departure,
+ * 0-6 and 8-13) and the online roster behind it. Its icon is painted into the sidebar background
+ * (content/sprites/back.png), so with the feature on every player gets the tab: members see the
+ * roster, everyone else a short how-to (clanTabHelp). Event-driven: a member's arrival or departure,
  * and any /clan command that can change a roster, marks that clan dirty; only dirty clans are read
  * from the ledger and re-rendered (once, for all their online members). Nothing is polled per tick
  * except an in-memory presence check.
  */
 export const CLAN_TAB = 7;
-export { CLAN_TAB_CLIENTCODE, CLAN_TAB_ROWS, clanTabContent } from './ClanTabContent.js';
+export { CLAN_TAB_CLIENTCODE, CLAN_TAB_ROWS, clanTabContent, clanTabHelp } from './ClanTabContent.js';
 
 type Presence = { player: Player; clanId: number | null };
 const presence = new Map<string, Presence>();
@@ -41,6 +43,19 @@ function clear(p: Player) {
     shown.delete(p);
     if (root() >= 0 && p.tabs[CLAN_TAB] === root()) p.setTab(-1, CLAN_TAB);
 }
+
+const HELP = 'help';
+/** The not-in-a-clan view (feature on, player outside any clan). */
+function help(p: Player) {
+    if (root() < 0) return;
+    if (p.tabs[CLAN_TAB] !== root()) p.setTab(root(), CLAN_TAB);
+    if (shown.get(p) === HELP) return;
+    shown.set(p, HELP);
+    for (const [name, value] of Object.entries(clanTabHelp())) p.write(new IfSetText(com(name), value));
+}
+
+/** Ordinary side tabs are up (login.rs2 has run, no cutscene/tutorial tab reset in progress). */
+const tabsUp = (p: Player) => p.tabs[3] !== -1;
 
 function notice(clanId: number, who: string, text: string, except: string) {
     try {
@@ -97,6 +112,7 @@ export function clanRosterChanged(touched: (number | null | undefined)[] = []): 
         if (now === p.clanId) continue;
         if (p.clanId !== null) dirty.add(p.clanId);
         if (now !== null) dirty.add(now);
+        else if (tabsUp(p.player)) help(p.player);
         else clear(p.player);
         p.clanId = now;
     }
@@ -107,7 +123,7 @@ function render(clanId: number) {
     const clan = store.clan(clanId);
     const viewers = onlineMembers(clanId);
     if (!clan) {
-        for (const p of viewers) clear(p);
+        for (const p of viewers) help(p);
         return;
     }
     const online = new Map(viewers.map(p => [p.username, p]));
@@ -138,10 +154,12 @@ export function clanTabTick(p: Player): void {
     }
     const cur = presence.get(p.username);
     if (!cur || cur.player !== p) arrive(p);
-    else if (cur.clanId !== null && p.tabs[CLAN_TAB] === -1 && p.tabs[3] !== -1) {
+    else if (cur.clanId !== null && p.tabs[CLAN_TAB] === -1 && tabsUp(p)) {
         // A script reset the side tabs (e.g. a cutscene, then initalltabs): put the clan tab back.
         p.setTab(root(), CLAN_TAB);
     }
+    const now = presence.get(p.username);
+    if (now && now.player === p && now.clanId === null && tabsUp(p) && (p.tabs[CLAN_TAB] !== root() || shown.get(p) !== HELP)) help(p);
     if (!dirty.size) return;
     const ids = [...dirty];
     dirty.clear();
