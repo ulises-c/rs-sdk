@@ -205,6 +205,27 @@ survival) is described in the project memory; this file is the human-readable ch
       then `bun run test:market:integration` with built content. Full design/operations:
       `docs/grand-exchange.md`; API: `sdk/MARKET.md`.
 
+### Clans and clan storage (rs-sdk fork, `feat/clan-storage`)
+Design: bot repo `docs/plans/clan-storage.md`; user doc `docs/clans.md`. Off unless `CLAN_STORAGE_ENABLED=true`
+(storage, `/clan` commands, bank button) / `CLAN_HISCORES_ENABLED=true` (pages), read in `engine/clan/ClanLedger.ts`.
+New code only in `engine/src/engine/clan/`, `web/pages/Clan*.ts`, `content/scripts/clan/`, `webclient/src/bot/clan-*.ts`,
+`sdk/clan-*`. Upstream files carry one delegation line each; `scripts/check-clan-footprint.sh` fails if the list grows.
+- [ ] Delegation lines: `IfButtonHandler` (`clanButton`), `InvButtonHandler` (`clanInvButton`),
+      `ResumePCountDialogHandler` (`clanCount`), `MessagePublicHandler` (`clanPublicChat`, after unpack and
+      before broadcast), `World.ts` per-player tick (`clanTick`; its import must stay *after* World's own
+      imports or the engine hits an init cycle), `web/index.ts` (`handleClanHiscores`), `web/pages/hiscores.ts`
+      (Clans sidebar link, player-page "Clan:" line), `webclient/src/bot/StateCollector.ts` (`clanStorage`),
+      `sdk/index.ts` (`getClanStorageState`), `sdk/actions.ts` (clan methods, `openBank` checks `bank.isOpen`,
+      `NEVER_AUTO_CLOSE`), `sdk/formatter.ts` (state section), `bank_main.if` (button), `interface.pack/.order`.
+- [ ] State: clan tables (`clan`, `clan_member`, `clan_invite`, `clan_item`, `clan_access`, `clan_cooldown`,
+      `clan_log`, `clan_value`, `clan_mgmt`) live in the GE ledger `market.sqlite`; a deposit/withdraw commits the
+      player save checkpoint in the same SQLite transaction (`playerSaveStore`). No prisma or save-format change.
+- [ ] `/clan` arrives as `" clan ..."`: the word packer has no `/` (it becomes a space), lowercases and drops `_`.
+      `CLAN_COMMAND` treats a leading space/slash as the marker; plain "clan ..." stays chat.
+- [ ] Only *layers* honour `hide` / IF_SETHIDE in this client: the bank button is a text child of a hidden layer.
+- [ ] Tests: `bun run test` (clan-store, clan-commands, clan-hiscores, SDK + state reader),
+      `bun run test:clan:integration` (real pack, handlers, word packer, SDK porcelain).
+
 ### Custom content IDs
 Upstream pack ids mirror each revision's cache: they don't grow within a revision (274's maxima were
 unchanged across 77 upstream commits) but jump at every revision bump, and upstream also *names*
@@ -218,14 +239,21 @@ Reserved (fixed since 289; upstream `377-wip` tops out at interface 18785 / varp
       `interface.order` before `grand_exchange_side` so each root stays contiguous
       (`interface.pack` + same ids in `interface.order`). Free: the interface format lists
       component ids explicitly, so the gap costs no bytes. Ids must stay below 65535 (the format's
-      root marker). Add new custom interfaces after 40753.
+      root marker). Add new custom interfaces after 40773.
+- [ ] **Clan storage interfaces 40754–40773** — `bank_main:clan_storage` **40754** (the button, a
+      text child) inside the hidden layer `bank_main:clan_storage_layer` **40773** (both listed in
+      `interface.order` right after bank_main's last component 8133); `clan_storage` root **40755** …
+      `clan_storage:agent_state` **40770**; `clan_storage_side` **40771**, `clan_storage_side:inv`
+      **40772**. Hidden JSON state clientcode **30460** (`ClanStorage.ts` `CLAN_STATE_CLIENTCODE`,
+      `webclient/src/bot/clan-storage-state.ts`).
 - [ ] **Varps 1000+** — `pvp_death_mark` **1000**. Saves store varps by id, so a fixed id means no
       more save migrations. Cost: per-player `vars`/`varsString` arrays are sized to the max id.
       `PlayerLoading.load` still moves a value found at **358** (its 274 id) to `pvp_death_mark`;
       safe because 289's varp 358 is temp-scoped and never saved. Keep that shim until no pre-289
       saves remain (prod saves + `market.sqlite` checkpoints).
-- [ ] Numeric reserved ids outside content: `sdk/actions.ts` `NEVER_AUTO_CLOSE` (40000) and
-      `sdk/test/ge-actions.test.ts`. Engine code resolves GE components by name (`Component.getId`).
+- [ ] Numeric reserved ids outside content: `sdk/actions.ts` `NEVER_AUTO_CLOSE` (40000, clan 40755),
+      `sdk/clan-actions.ts` (`CLAN_BANK_BUTTON_ID` 40754, `CLAN_STORAGE_ROOT_ID` 40755; the
+      integration test asserts they match the pack) and `sdk/test/ge-actions.test.ts`. Engine code resolves GE components by name (`Component.getId`).
 
 Tail-appended (renumber at each revision bump):
 - [ ] `loc.pack` `grand_exchange_booth` **5116** (274: 4671). Not reserved high: the engine allocates a

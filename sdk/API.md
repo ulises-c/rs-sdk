@@ -12,6 +12,29 @@
 
 ## BotActions (high-level)
 
+### Other
+
+| Signature | Description |
+|---|---|
+| `async openClanStorage(timeout: number = 20_000): Promise<ClanStorageResult>` | Open the clan storage: opens the nearest bank if needed, then clicks the bank screen's Clan storage button. |
+| `async closeClanStorage(timeout: number = 5_000): Promise<ClanStorageResult>` | Close the clan storage screen. |
+| `async useItemOnLoc(item: InventoryItem \| string \| RegExp, loc: NearbyLoc \| string \| RegExp, options: { timeout?: number } = {}): Promise<UseItemOnLocResult>` | Use an inventory item on a nearby location (e.g., fish on range, ore on furnace). Walks to the location first (handling doors), then uses the item. |
+| `async useItemOnNpc(item: InventoryItem \| string \| RegExp, npc: NearbyNpc \| string \| RegExp, options: { timeout?: number } = {}): Promise<UseItemOnNpcResult>` | Use an inventory item on a nearby NPC (e.g., bones on altar keeper, item on NPC). Walks to the NPC first (handling doors), then uses the item. |
+| `async dropItem(target: InventoryItem \| string \| RegExp, amount: number \| 'all' = 'all'): Promise<DropItemResult>` | Drop inventory items by name, waiting for each drop to land before sending the next. `sendDropItem` on a slot the server has already emptied silently no-ops, so slot loops built on stale state lose most of their sends; this re-resolves the slot from fresh state every time. `amount` counts inventory slots (a whole stack drops as one). Pass `'all'` or `-1` to drop every matching slot. |
+| `async closeInterface(timeout: number = 5000): Promise<ActionResult>` | Close any open modal interface (bank, book, quest scroll, etc.). |
+
+### Banking
+
+| Signature | Description |
+|---|---|
+| `async clanDeposit(item: number \| string \| RegExp, amount: number \| 'all' = 'all', timeout: number = 10_000): Promise<ClanStorageResult>` | Deposit an item (id, exact name or pattern) from the backpack into the open clan storage; verifies the backpack delta. |
+| `async clanDepositInventory(timeout: number = 10_000): Promise<ClanStorageResult>` | Deposit every storable backpack item into the open clan storage. |
+| `async clanWithdraw(item: number \| string \| RegExp, amount: number \| 'all' = 'all', options: { noted?: boolean; force?: boolean } = {}, timeout: number = 10_000): Promise<ClanStorageResult>` | Withdraw from the open clan storage; refuses locally with reason 'rank' or 'cooldown' when the screen says you can't (force: true asks the server anyway). |
+| `async openBank(timeout: number = 10000): Promise<OpenBankResult>` | Open a bank booth or talk to a banker. |
+| `async closeBank(timeout: number = 5000): Promise<ActionResult>` | Close the bank interface. |
+| `async depositItem(target: InventoryItem \| string \| RegExp, amount: number = -1): Promise<BankDepositResult>` | Deposit an item into the bank. Use -1 for all. A pattern with `-1` deposits every distinct matching item: an alternation like `/^(shark\|burnt shark)$/i` covers both ids, not just whichever matched first. |
+| `async withdrawItem(target: BankItem \| string \| RegExp \| number, amount: number = 1, options: { asNote?: boolean } = {}): Promise<BankWithdrawResult>` | Withdraw an item from the bank by slot, name, or BankItem. `asNote: true` withdraws as a banknote: the note/item toggle is synced first (and synced back to items on the next plain withdrawal), and completion is detected on the noted item's arrival. Items the engine cannot note are withdrawn unnoted with a game message; the result then carries the unnoted item. |
+
 ### Grand Exchange
 
 | Signature | Description |
@@ -37,15 +60,6 @@
 | Signature | Description |
 |---|---|
 | `async openDoor(target?: NearbyLoc \| string \| RegExp): Promise<OpenDoorResult>` | Open a door or gate, walking to it if needed. |
-
-### Other
-
-| Signature | Description |
-|---|---|
-| `async useItemOnLoc(item: InventoryItem \| string \| RegExp, loc: NearbyLoc \| string \| RegExp, options: { timeout?: number } = {}): Promise<UseItemOnLocResult>` | Use an inventory item on a nearby location (e.g., fish on range, ore on furnace). Walks to the location first (handling doors), then uses the item. |
-| `async useItemOnNpc(item: InventoryItem \| string \| RegExp, npc: NearbyNpc \| string \| RegExp, options: { timeout?: number } = {}): Promise<UseItemOnNpcResult>` | Use an inventory item on a nearby NPC (e.g., bones on altar keeper, item on NPC). Walks to the NPC first (handling doors), then uses the item. |
-| `async dropItem(target: InventoryItem \| string \| RegExp, amount: number \| 'all' = 'all'): Promise<DropItemResult>` | Drop inventory items by name, waiting for each drop to land before sending the next. `sendDropItem` on a slot the server has already emptied silently no-ops, so slot loops built on stale state lose most of their sends; this re-resolves the slot from fresh state every time. `amount` counts inventory slots (a whole stack drops as one). Pass `'all'` or `-1` to drop every matching slot. |
-| `async closeInterface(timeout: number = 5000): Promise<ActionResult>` | Close any open modal interface (bank, book, quest scroll, etc.). |
 
 ### Woodcutting & Firemaking
 
@@ -83,15 +97,6 @@
 | `async openShop(target?: NearbyNpc \| string \| RegExp): Promise<ActionResult>` | Open a shop by trading with an NPC. Defaults to the nearest shopkeeper. |
 | `async buyFromShop(target: ShopItem \| string \| RegExp, amount: number = 1): Promise<ShopResult>` | Buy an item from an open shop. `success` is true only when the full requested amount arrived; a short fill (out of stock, out of coins, full inventory) returns `success: false` with `partial: true` and the actual `amountBought`. |
 | `async sellToShop(target: InventoryItem \| ShopItem \| string \| RegExp, amount: SellAmount = 1): Promise<ShopSellResult>` | Sell an item to an open shop. `success` is true only when the full requested amount was sold; a short fill returns `success: false` with `partial: true` and `amountSold`. |
-
-### Banking
-
-| Signature | Description |
-|---|---|
-| `async openBank(timeout: number = 10000): Promise<OpenBankResult>` | Open a bank booth or talk to a banker. |
-| `async closeBank(timeout: number = 5000): Promise<ActionResult>` | Close the bank interface. |
-| `async depositItem(target: InventoryItem \| string \| RegExp, amount: number = -1): Promise<BankDepositResult>` | Deposit an item into the bank. Use -1 for all. A pattern with `-1` deposits every distinct matching item: an alternation like `/^(shark\|burnt shark)$/i` covers both ids, not just whichever matched first. |
-| `async withdrawItem(target: BankItem \| string \| RegExp \| number, amount: number = 1, options: { asNote?: boolean } = {}): Promise<BankWithdrawResult>` | Withdraw an item from the bank by slot, name, or BankItem. `asNote: true` withdraws as a banknote: the note/item toggle is synced first (and synced back to items on the next plain withdrawal), and completion is detected on the noted item's arrival. Items the engine cannot note are withdrawn unnoted with a game message; the result then carries the unnoted item. |
 
 ### Player Trading
 
@@ -174,6 +179,7 @@
 | `getReconnectAttempt(): number` | Get current reconnection attempt number. |
 | `getConnectionMode(): SDKConnectionMode` | Get connection mode (control or observe). |
 | `async isBotConnected(): Promise<boolean>` | Check if bot is currently connected to gateway. |
+| `getClanStorageState(): ClanStorageState \| null` | Clan storage screen state (opened from the bank screen's Clan storage button). Null when closed or unsupported. |
 | `getState(): BotWorldState \| null` | Get current game state snapshot. |
 | `getStateReceivedAt(): number` | Get timestamp when state was last received (ms since epoch) |
 | `getStateAge(): number` | Get age of current state in milliseconds |
