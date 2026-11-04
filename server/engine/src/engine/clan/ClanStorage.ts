@@ -20,6 +20,8 @@ import { ClanError, MAX_STACK, type ClanContext, type ClanView } from './ClanSto
 
 /** Hidden JSON state component for bots (reserved client code block 30460+, after the GE's 30400-30451). */
 export const CLAN_STATE_CLIENTCODE = 30460;
+/** The storage grid's slots (clan_storage.if: 8 x 100, the bank's layout with 100 rows). */
+const GRID_SLOTS = 800;
 /** Bots can't read more than one var-short IF_SETTEXT; stay well below 65535 bytes. */
 const MAX_STATE_BYTES = 60_000;
 
@@ -34,6 +36,8 @@ type Session = {
     noted: boolean;
     input?: Input;
     notice: string;
+    /** Last cooldown/status line told in the chatbox. */
+    status?: string;
     error: string | null;
     errorReason: string | null;
     receipt: ClanStorageState['receipt'];
@@ -59,6 +63,10 @@ function ctx(p: Player): ClanContext {
 function text(p: Player, name: string, value: string) {
     const id = com(name);
     if (id >= 0) p.write(new IfSetText(id, value));
+}
+function hide(p: Player, name: string, hidden: boolean) {
+    const id = com(name);
+    if (id >= 0) p.write(new IfSetHide(id, hidden));
 }
 function message(error: unknown): string {
     if (error instanceof ClanError) return error.message;
@@ -140,13 +148,15 @@ function render(p: Player, view?: ClanView) {
     s.clanId = v.clan.id;
     s.storeRevision = v.revision;
     s.rows = v.items.map(i => i.id);
-    const display = new Inventory(-1, Math.max(1, v.capacity.max));
-    v.items.forEach((item, slot) => display.set(slot, { id: item.id, count: item.count }));
+    const display = new Inventory(-1, Math.max(1, Math.min(v.capacity.max, GRID_SLOTS)));
+    v.items.forEach((item, slot) => slot < GRID_SLOTS && display.set(slot, { id: item.id, count: item.count }));
     p.write(new UpdateInvFull(com('inv'), display));
-    text(p, 'title', `${v.clan.name} storage`);
-    text(p, 'capacity', `${v.capacity.used} / ${v.capacity.max}`);
-    text(p, 'rank', `Your rank: ${rankName(v.rank)}${v.effectiveRank < v.rank ? ` (acting ${rankName(v.effectiveRank)})` : ''}`);
-    text(p, 'mode', `Withdraw as: ${s.noted ? 'Note' : 'Item'}`);
+    text(p, 'title', `${v.clan.name} clan storage`);
+    text(p, 'capacity', `Capacity: ${v.capacity.used} / ${v.capacity.max}`);
+    text(p, 'rank', `Rank: ${rankName(v.rank)}${v.effectiveRank < v.rank ? ` (acting ${rankName(v.effectiveRank)})` : ''}`);
+    // The bank's Item/Note select boxes: the lit box is a hidden layer over the plain one.
+    hide(p, 'mode_on', !s.noted);
+    hide(p, 'mode_item_on', s.noted);
     const store = clanStore();
     const status = v.cooldowns.newMember
         ? `New member: withdrawals in ${store.wait(v.cooldowns.newMember)}`
@@ -156,7 +166,10 @@ function render(p: Player, view?: ClanView) {
                 const cd = v.items.filter(i => i.cooldownUntil).sort((a, b) => a.cooldownUntil! - b.cooldownUntil!)[0];
                 return cd ? `You can withdraw ${cd.name} again in ${store.wait(cd.cooldownUntil!)}` : v.canDeposit ? '' : 'Your rank cannot deposit.';
             })();
-    text(p, 'status', status);
+    // The bank screen has no spare line for it: a changed status goes to the chatbox, once.
+    const statusKey = status.replace(/\d+[dhms]/g, '#');
+    if (status && statusKey !== s.status) p.messageGame(status);
+    s.status = statusKey;
     publish(p, v);
 }
 
@@ -178,7 +191,7 @@ function publish(p: Player, v: ClanView) {
         noteMode: s.noted,
         items: v.items.map(i => ({ slot: i.slot, id: i.id, name: i.name, count: i.count, minRank: i.minRank, canWithdraw: i.canWithdraw, cooldownUntil: i.cooldownUntil, reason: i.reason })),
         cooldowns: v.cooldowns,
-        controls: { close: com('close'), bank: com('bank'), mode: com('mode'), depositInventory: com('deposit_inv') },
+        controls: { close: com('close'), bank: com('bank'), mode: com('mode'), item: com('mode_item'), note: com('mode'), depositInventory: com('deposit_inv') },
         components: { inv: com('inv'), sideInv: sideInv() },
         input: s.input?.kind ?? null,
         notice: s.notice,
@@ -323,8 +336,9 @@ export function clanButton(p: Player, id: number): boolean {
         if (script) p.executeScript(ScriptRunner.init(script, p), true);
         return true;
     }
-    if (id === com('mode')) {
-        s.noted = !s.noted;
+    if (id === com('mode') || id === com('mode_item')) {
+        // Bank-style select boxes: "Note" (mode) and "Item" (mode_item).
+        s.noted = id === com('mode');
         render(p);
         return true;
     }

@@ -4,7 +4,7 @@ import type { ClanStorageItem, ClanStorageResult, ClanStorageState } from './cla
 import type { ActionResult, BotWorldState } from './types';
 
 /**
- * Reserved interface ids (server/PATCHES.md "Custom content IDs", clan block 40754-40772).
+ * Reserved interface ids (server/PATCHES.md "Custom content IDs", clan block 40754-40901).
  * The engine resolves them by name; the SDK needs the button before the screen exists.
  */
 export const CLAN_BANK_BUTTON_ID = 40754; // bank_main:clan_storage
@@ -178,7 +178,9 @@ export class ClanStorageActions {
                 throw new ClanFailure(`Cannot withdraw ${entry.name}: ${entry.reason}.`, why);
             }
             const noted = !!options.noted;
-            if (s.noteMode !== noted) s = await this.step(() => this.sdk.sendClickComponent(s.controls.mode), c => c.noteMode === noted, deadline);
+            // Bank-style Item/Note select boxes; a server without them toggles on `mode`.
+            const select = (noted ? s.controls.note : s.controls.item) ?? s.controls.mode;
+            if (s.noteMode !== noted) s = await this.step(() => this.sdk.sendClickComponent(select), c => c.noteMode === noted, deadline);
             const target = find(s);
             if (!target) throw new ClanFailure('The storage has changed, try again.', 'stale');
             const ids = new Set((this.sdk.getState()?.inventory ?? []).map(i => i.id));
