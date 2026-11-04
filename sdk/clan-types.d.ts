@@ -90,3 +90,11 @@ export interface ClanStorageResult {
     count?: number;
     state?: ClanStorageState;
 }
+
+// Module augmentation instead of an edit to sdk/types.ts (upstream footprint, clan-storage.md section 12).
+declare module './types' {
+    interface BotWorldState {
+        /** Null outside the clan storage screen; absent on older clients and servers without clans. */
+        clanStorage?: ClanStorageState | null;
+    }
+}

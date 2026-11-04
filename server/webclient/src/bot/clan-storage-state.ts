@@ -1,4 +1,11 @@
 import type { ClanStorageState } from '../../../../sdk/clan-types.js';
+// Module augmentation instead of an edit to bot/types.ts (upstream footprint, clan-storage.md section 12).
+declare module './types.js' {
+    interface BotState {
+        /** Null outside the clan storage screen. */
+        clanStorage?: ClanStorageState | null;
+    }
+}
 interface Component {
     clientCode: number;
     text: string | null;
