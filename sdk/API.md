@@ -180,6 +180,8 @@
 | `getConnectionMode(): SDKConnectionMode` | Get connection mode (control or observe). |
 | `async isBotConnected(): Promise<boolean>` | Check if bot is currently connected to gateway. |
 | `getClanStorageState(): ClanStorageState \| null` | Clan storage screen state (opened from the bank screen's Clan storage button). Null when closed or unsupported. |
+| `getClanState(): ClanTabState \| null` | The clan side tab: clan, member and online counts, the roster (online first). Null when not in a clan. |
+| `getClanChat(opts: { limit?: number } = {}): ClanChatMessage[]` | Clan chat lines received (game messages `[Clan] Sender: text`), oldest first; includes your own. |
 | `getState(): BotWorldState \| null` | Get current game state snapshot. |
 | `getStateReceivedAt(): number` | Get timestamp when state was last received (ms since epoch) |
 | `getStateAge(): number` | Get age of current state in milliseconds |
@@ -252,19 +254,11 @@
 | `getGEState(): GEState \| null` | Private GE state while at an open physical exchange. Null when closed or unsupported. |
 | `async sendGESearch(query: string): Promise<ActionResult>` | Filter the open in-game GE catalogue. Success means dispatch; wait for the acknowledged query. |
 
-### On-Demand Scanning
-
-| Signature | Description |
-|---|---|
-| `async scanNearbyLocs(radius?: number): Promise<NearbyLoc[]>` | Scan for nearby locations with custom radius. Results are scoped to the player's current plane (each carries `level`); re-scan after climbing or descending rather than reusing old references. |
-| `async scanGroundItems(radius?: number): Promise<GroundItem[]>` | Scan for ground items on-demand. This is more efficient than constantly pushing this data in state updates. |
-| `async scanFindNearbyLoc(pattern: string \| RegExp, radius?: number): Promise<NearbyLoc \| null>` | Find a nearby location by name pattern (on-demand scan). |
-| `async scanFindGroundItem(pattern: string \| RegExp, radius?: number): Promise<GroundItem \| null>` | Find a ground item by name pattern (on-demand scan). |
-
 ### Raw Actions
 
 | Signature | Description |
 |---|---|
+| `async sendClanChat(text: string): Promise<ActionResult>` | Say a line in clan chat (public chat with a leading "/"; the server never shows it publicly). |
 | `async sendWalk(x: number, z: number, running: boolean = true): Promise<ActionResult>` | Send walk command to coordinates. |
 | `async sendInteractLoc(x: number, z: number, locId: number, option: number = 1): Promise<ActionResult>` | Interact with a location (tree, rock, door, etc). |
 | `async sendInteractNpc(npcIndex: number, option: number = 1): Promise<ActionResult>` | Interact with an NPC by index and option. |
@@ -310,6 +304,15 @@
 | `async sendBankWithdraw(slot: number, amount: number = 1): Promise<ActionResult>` | Withdraw item from bank by slot. |
 | `async sendScreenshot(timeout: number = 10000): Promise<string>` | Request a screenshot from the bot client. Returns the screenshot as a data URL (data:image/png;base64,...). |
 | `async sendFindPath(destX: number, destZ: number, maxWaypoints: number = 500): Promise<{ success: boolean; waypoints: Array<{ x: number; z: number; level: number }>; reachedDestination?: boolean; error?: string }>` | Find path to destination (async alias for findPath). |
+
+### On-Demand Scanning
+
+| Signature | Description |
+|---|---|
+| `async scanNearbyLocs(radius?: number): Promise<NearbyLoc[]>` | Scan for nearby locations with custom radius. Results are scoped to the player's current plane (each carries `level`); re-scan after climbing or descending rather than reusing old references. |
+| `async scanGroundItems(radius?: number): Promise<GroundItem[]>` | Scan for ground items on-demand. This is more efficient than constantly pushing this data in state updates. |
+| `async scanFindNearbyLoc(pattern: string \| RegExp, radius?: number): Promise<NearbyLoc \| null>` | Find a nearby location by name pattern (on-demand scan). |
+| `async scanFindGroundItem(pattern: string \| RegExp, radius?: number): Promise<GroundItem \| null>` | Find a ground item by name pattern (on-demand scan). |
 
 ### Pathfinding
 

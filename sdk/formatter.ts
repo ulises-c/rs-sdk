@@ -267,6 +267,13 @@ export function formatWorldState(
         lines.push('Use bot.clanDeposit / clanDepositInventory / clanWithdraw / closeClanStorage; sdk.getClanStorageState() has the full state.');
     }
 
+    if (state.clan) {
+        const online = state.clan.members.filter(m => m.online).map(m => `${m.name} (${m.rankName})`);
+        lines.push('', `## Clan: ${state.clan.clan.name} (${state.clan.memberCount} members, ${state.clan.onlineCount} online)`);
+        if (online.length) lines.push(`Online: ${online.join(', ')}`);
+        lines.push('Clan chat: sdk.sendClanChat(text); received lines: sdk.getClanChat().');
+    }
+
     // Shop state
     if (state.shop && state.shop.isOpen) {
         lines.push('');

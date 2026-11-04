@@ -40,7 +40,11 @@ export interface ClanStorageState {
     /** Server epoch ms when each cooldown ends, or null. */
     cooldowns: { newMember: number | null; promotion: number | null };
     /** Named component ids, dispatched through the ordinary IF_BUTTON handler. */
-    controls: { close: number; bank: number; mode: number; depositInventory: number };
+    /**
+     * `item` / `note` select the withdraw mode (bank-style select boxes); `mode` is the Note box,
+     * kept for SDKs that predate the two boxes.
+     */
+    controls: { close: number; bank: number; mode: number; item?: number; note?: number; depositInventory: number };
     /** INV_BUTTON components: the storage grid (withdraw) and the storage backpack (deposit). */
     components: { inv: number; sideInv: number };
     /** A Withdraw-X / Deposit-X count dialog is waiting. */
@@ -91,10 +95,37 @@ export interface ClanStorageResult {
     state?: ClanStorageState;
 }
 
+/** One clan member as the clan side tab lists them (online first, then by rank). */
+export interface ClanTabMember {
+    name: string;
+    rank: number;
+    rankName: string;
+    /** Logged in on this world (the roster is per world; other worlds are not seen). */
+    online: boolean;
+}
+/** The clan side tab (sidebar slot 7), present while the player is in a clan and clan chat is on. */
+export interface ClanTabState {
+    /** Advances whenever the server re-renders the tab for this clan. */
+    seq: number;
+    clan: { id: number; name: string };
+    memberCount: number;
+    onlineCount: number;
+    members: ClanTabMember[];
+}
+/** A clan chat line, parsed from the game message `[Clan name] Sender: text`. */
+export interface ClanChatMessage {
+    clan: string;
+    sender: string;
+    text: string;
+    tick: number;
+}
+
 // Module augmentation instead of an edit to sdk/types.ts (upstream footprint, clan-storage.md section 12).
 declare module './types' {
     interface BotWorldState {
         /** Null outside the clan storage screen; absent on older clients and servers without clans. */
         clanStorage?: ClanStorageState | null;
+        /** The clan side tab; null when not in a clan (or the server has no clan chat). */
+        clan?: ClanTabState | null;
     }
 }

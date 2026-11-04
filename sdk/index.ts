@@ -1,7 +1,9 @@
 import type { GEState } from './ge-types';
 export type { GEState, GEOffer, GEOfferRequest, GEActionResult } from './ge-types';
-import type { ClanStorageState } from './clan-types';
-export type { ClanStorageState, ClanStorageItem, ClanStorageResult } from './clan-types';
+import type { ClanStorageState, ClanTabState, ClanChatMessage } from './clan-types';
+export type { ClanStorageState, ClanStorageItem, ClanStorageResult, ClanTabState, ClanTabMember, ClanChatMessage } from './clan-types';
+import { clanChatCommand, clanChatFromMessages } from './clan-chat';
+export { parseClanChatLine } from './clan-chat';
 import { MarketClient, type GEAvailability, type MarketItems, type MarketQuote, type MarketHistory, type MarketItemsOptions, type MarketItemOptions, type MarketHistoryOptions } from './market';
 export { MarketClient, GEUnavailableError } from './market';
 export type { GEAvailability, MarketItems, MarketQuote, MarketHistory, MarketSort, MarketDays, MarketItemsOptions, MarketItemOptions, MarketHistoryOptions } from './market';
@@ -648,6 +650,23 @@ export class BotSDK {
     /** Clan storage screen state (opened from the bank screen's Clan storage button). Null when closed or unsupported. */
     getClanStorageState(): ClanStorageState | null {
         return this.state?.modalOpen ? this.state.clanStorage ?? null : null;
+    }
+
+    /** The clan side tab: clan, member and online counts, the roster (online first). Null when not in a clan. */
+    getClanState(): ClanTabState | null {
+        return this.state?.clan ?? null;
+    }
+
+    /** Say a line in clan chat (public chat with a leading "/"; the server never shows it publicly). */
+    async sendClanChat(text: string): Promise<ActionResult> {
+        return this.sendSay(clanChatCommand(text));
+    }
+
+    /** Clan chat lines received (game messages `[Clan] Sender: text`), oldest first; includes your own. */
+    getClanChat(opts: { limit?: number } = {}): ClanChatMessage[] {
+        const lines = clanChatFromMessages(this.chatHistory.all());
+        const limit = opts.limit ?? 20;
+        return limit > 0 ? lines.slice(-limit) : lines;
     }
 
     /** Filter the open in-game GE catalogue. Success means dispatch; wait for the acknowledged query. */
