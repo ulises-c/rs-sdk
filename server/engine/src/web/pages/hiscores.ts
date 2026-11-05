@@ -7,6 +7,7 @@ import { itemSpriteUrl, playerSpriteUrl } from '#/web/sprites/SpriteRenderer.js'
 import { parseBankSnapshots, rankMatchingBanks } from './BankHiscores.js';
 import type { BankSnapshot } from './BankHiscores.js';
 import { loadRankedList, type RankedRow } from './RankedHiscores.js';
+import { clanHiscoreTableLink, clanPlayerLink } from './ClanHiscores.js';
 
 const hiddenNames = Environment.HISCORES_HIDDEN_NAMES;
 
@@ -120,7 +121,8 @@ function hiscoreTableLinks(profile: string): string {
         `\n<tr><td>&nbsp;</td></tr>\n<tr><td><a href="/hiscores?category=${QUEST_POINTS_HISCORE_TYPE}&profile=${profile}" class="c text-orange">Quest Points</a></td></tr>` +
         `\n<tr><td><a href="/hiscores/outfit?profile=${profile}" class="c text-orange">Equipment</a></td></tr>` +
         `\n<tr><td><a href="/hiscores/bank?profile=${profile}" class="c text-orange">Bank</a></td></tr>` +
-        `\n<tr><td><a href="/hiscores/runite?profile=${profile}" class="c text-orange">Lava Maze Runite</a></td></tr>`
+        `\n<tr><td><a href="/hiscores/runite?profile=${profile}" class="c text-orange">Lava Maze Runite</a></td></tr>` +
+        clanHiscoreTableLink(profile)
     );
 }
 
@@ -241,6 +243,7 @@ export async function handleHiscoresPlayerPage(url: URL): Promise<Response | nul
                         <td class="e">
                             <center>
                                 <b>Hiscores for ${escapeHtml(account.username)}</b><br>
+                                ${clanPlayerLink(account.username, profile)}
                                 <a href="/" class="c">Main menu</a> | <a href="/hiscores?profile=${profile}" class="c">All Hiscores</a>
                             </center>
                         </td>

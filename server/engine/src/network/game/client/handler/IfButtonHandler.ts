@@ -1,4 +1,5 @@
 import { exchangeButton } from '#/engine/market/GrandExchange.js';
+import { clanButton } from '#/engine/clan/ClanHooks.js';
 import Component from '#/cache/config/Component.js';
 import Player from '#/engine/entity/Player.js';
 import ScriptProvider from '#/engine/script/ScriptProvider.js';
@@ -23,6 +24,7 @@ export default class IfButtonHandler extends ClientGameMessageHandler<IfButton> 
         }
 
         if (exchangeButton(player, comId)) return true;
+        if (clanButton(player, comId)) return true;
 
         player.lastCom = comId;
 

@@ -106,6 +106,7 @@ import FriendlistLoaded from '#/network/game/server/model/FriendlistLoaded.js';
 import HashTable from '#/datastruct/HashTable.js';
 import Midi from '#/cache/midi/Midi.js';
 import { WorldQueue } from '#/engine/WorldQueue.js';
+import { clanTick } from '#/engine/clan/ClanHooks.js';
 
 const priv = forge.pki.privateKeyFromPem(fs.readFileSync('data/config/private.pem', 'ascii'));
 
@@ -803,6 +804,7 @@ class World {
                 player.reorient();
                 if (!player.busy() && !player.delayed && !player.loggingOut) player.recoverItems();
                 if (Environment.GE_ENABLED) tickExchange(player);
+                clanTick(player);
 
                 // - run energy
                 player.updateEnergy();

@@ -227,7 +227,7 @@ export function formatWorldState(
     }
 
     // Interface state (crafting menus, etc.)
-    if (state.interface && state.interface.isOpen && !state.ge?.isOpen) {
+    if (state.interface && state.interface.isOpen && !state.ge?.isOpen && !state.clanStorage?.isOpen) {
         lines.push('');
         lines.push(`## Interface (id: ${state.interface.interfaceId})`);
         if (state.interface.options.length > 0) {
@@ -252,6 +252,26 @@ export function formatWorldState(
         if (ge.input) lines.push(`Waiting for numeric ${ge.input} input.`);
         if (ge.error || ge.notice) lines.push(ge.error ? `GE error: ${ge.error}` : ge.notice);
         lines.push('Use bot.placeGEOffer / cancelGEOffer / collectGEOffer / collectGE; sdk.getGEState() has full private state. Trading requires this physical exchange session.');
+    }
+
+    if (state.clanStorage?.isOpen && state.modalOpen) {
+        const c = state.clanStorage;
+        lines.push('', `## Clan storage: ${c.clan.name} (${c.capacity.used}/${c.capacity.max} kinds, revision ${c.storeRevision})`);
+        lines.push(`Rank: ${c.rankName}${c.effectiveRank < c.rank ? ` (acting rank ${c.effectiveRank} until the promotion cooldown ends)` : ''}; deposit ${c.canDeposit ? 'allowed' : 'not allowed'}; withdraw as ${c.noteMode ? 'notes' : 'items'}`);
+        const wait = (until: number | null) => (until ? `${Math.max(1, Math.ceil((until - c.serverTime) / 60_000))}m` : '');
+        if (c.cooldowns.newMember) lines.push(`New member: withdrawals in ${wait(c.cooldowns.newMember)}`);
+        if (c.cooldowns.promotion) lines.push(`Promotion applies in ${wait(c.cooldowns.promotion)}`);
+        for (const i of c.items) lines.push(`  [${i.slot}] ${i.name || 'item ' + i.id} x${i.count} (id ${i.id})${i.canWithdraw ? '' : ` - ${i.reason}${i.cooldownUntil ? ' ' + wait(i.cooldownUntil) : ''}`}`);
+        if (c.input) lines.push(`Waiting for a ${c.input} amount.`);
+        if (c.error || c.notice) lines.push(c.error ? `Clan storage error: ${c.error}` : c.notice);
+        lines.push('Use bot.clanDeposit / clanDepositInventory / clanWithdraw / closeClanStorage; sdk.getClanStorageState() has the full state.');
+    }
+
+    if (state.clan) {
+        const online = state.clan.members.filter(m => m.online).map(m => `${m.name} (${m.rankName})`);
+        lines.push('', `## Clan: ${state.clan.clan.name} (${state.clan.memberCount} members, ${state.clan.onlineCount} online)`);
+        if (online.length) lines.push(`Online: ${online.join(', ')}`);
+        lines.push('Clan chat: sdk.sendClanChat(text); received lines: sdk.getClanChat().');
     }
 
     // Shop state
@@ -507,7 +527,7 @@ export interface WorldSummary {
     equipment: { slot: number; id: number; name: string }[];
     dialog: { text: string | null; isWaiting: boolean; options: { index: number; text: string }[] } | null;
     /** `options` dispatch by componentId (sdk.clickInterfaceOption), not by their display index. */
-    modal: { kind: 'shop' | 'bank' | 'trade' | 'ge' | 'interface'; interfaceId: number; options: { componentId: number; text: string }[] } | null;
+    modal: { kind: 'shop' | 'bank' | 'trade' | 'ge' | 'clanStorage' | 'interface'; interfaceId: number; options: { componentId: number; text: string }[] } | null;
     nearby: {
         npcs: WorldList<{ index: number; id: number; name: string; combatLevel: number; x: number; z: number; distance: number; hp: number | null; maxHp: number | null; inCombat: boolean; reachable: boolean | null; options: string[] }>;
         players: WorldList<{ index: number; name: string; combatLevel: number; x: number; z: number; distance: number }>;
@@ -537,7 +557,7 @@ export function summarizeWorldState(
 
     let modal: WorldSummary['modal'] = null;
     const iface = state.interface?.isOpen ? state.interface : null;
-    const kind = state.trade?.isOpen ? 'trade' : state.ge?.isOpen ? 'ge' : state.shop?.isOpen ? 'shop' : state.bank?.isOpen ? 'bank' : iface || state.modalOpen ? 'interface' : null;
+    const kind = state.trade?.isOpen ? 'trade' : state.ge?.isOpen ? 'ge' : state.clanStorage?.isOpen ? 'clanStorage' : state.shop?.isOpen ? 'shop' : state.bank?.isOpen ? 'bank' : iface || state.modalOpen ? 'interface' : null;
     if (kind) {
         modal = {
             kind,
