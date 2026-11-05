@@ -1,4 +1,15 @@
 [proc,mm_login]
+// only the wake_up walktrigger and lumo_jailed_dialogue queue clear this, and neither survives logout,
+// so a logout mid-knockout leaves it stuck (archers never knock out, guards smoke-puff)
+%mm_player_is_unconscious = ^false;
+// logged out mid hangar cutscene: the flag blocks every hangar cutscene near you, so finish it
+if(%mm_hangar_cutscene_flag = ^true) {
+    %mm_hangar_cutscene_flag = ^false;
+    if(%mm_daero < ^daero_reinit_complete) {
+        p_teleport(0_41_70_25_27);
+        %mm_daero = ^daero_reinit_complete;
+    }
+}
 if(inv_total(inv, mm_monkey_in_backpack) > 0) {
     settimer(monkey_backpack_timer, ~random_range(5, 50));
 }

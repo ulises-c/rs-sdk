@@ -1,5 +1,9 @@
 import type { GEState } from './ge-types';
 export type { GEState, GEOffer, GEOfferRequest, GEActionResult } from './ge-types';
+import type { ClanStorageState, ClanTabState, ClanChatMessage } from './clan-types';
+export type { ClanStorageState, ClanStorageItem, ClanStorageResult, ClanTabState, ClanTabMember, ClanChatMessage } from './clan-types';
+import { clanChatCommand, clanChatFromMessages } from './clan-chat';
+export { parseClanChatLine } from './clan-chat';
 import { MarketClient, type GEAvailability, type MarketItems, type MarketQuote, type MarketHistory, type MarketItemsOptions, type MarketItemOptions, type MarketHistoryOptions } from './market';
 export { MarketClient, GEUnavailableError } from './market';
 export type { GEAvailability, MarketItems, MarketQuote, MarketHistory, MarketSort, MarketDays, MarketItemsOptions, MarketItemOptions, MarketHistoryOptions } from './market';
@@ -35,7 +39,7 @@ import { ChatHistory } from './chat-history';
 import { executionContext, executionWait, throwIfExecutionAborted } from './execution-context';
 import { redactCredentials } from './redact';
 import * as pathfinding from './pathfinding';
-import { resolveInterfaceOption, shortestNameMatch, type InterfaceOptionSelector } from './action-quantity';
+import { matchesPlayerName, playerNameForms, resolveInterfaceOption, shortestNameMatch, type InterfaceOptionSelector } from './action-quantity';
 
 /**
  * Apply {@link FindOptions} to a find* winner. `shortestNameMatch` already
@@ -643,6 +647,28 @@ export class BotSDK {
         return this.state?.modalOpen ? this.state.ge ?? null : null;
     }
 
+    /** Clan storage screen state (opened from the bank screen's Clan storage button). Null when closed or unsupported. */
+    getClanStorageState(): ClanStorageState | null {
+        return this.state?.modalOpen ? this.state.clanStorage ?? null : null;
+    }
+
+    /** The clan side tab: clan, member and online counts, the roster (online first). Null when not in a clan. */
+    getClanState(): ClanTabState | null {
+        return this.state?.clan ?? null;
+    }
+
+    /** Say a line in clan chat (public chat with a leading "/"; the server never shows it publicly). */
+    async sendClanChat(text: string): Promise<ActionResult> {
+        return this.sendSay(clanChatCommand(text));
+    }
+
+    /** Clan chat lines received (game messages `[Clan] Sender: text`), oldest first; includes your own. */
+    getClanChat(opts: { limit?: number } = {}): ClanChatMessage[] {
+        const lines = clanChatFromMessages(this.chatHistory.all());
+        const limit = opts.limit ?? 20;
+        return limit > 0 ? lines.slice(-limit) : lines;
+    }
+
     /** Filter the open in-game GE catalogue. Success means dispatch; wait for the acknowledged query. */
     async sendGESearch(query: string): Promise<ActionResult> {
         if (!/^[a-zA-Z0-9 '()*-]{0,48}$/.test(query)) return {success: false, message: 'GE search accepts up to 48 letters, digits, spaces and apostrophes/parentheses/*/hyphens.', reason: 'invalid_argument'};
@@ -765,7 +791,7 @@ export class BotSDK {
 
     /**
      * Read recent chat from a specific sender (case-insensitive, substring match
-     * on name), newest last, from the accumulated history. Handy for "what did
+     * on display or login name), newest last, from the accumulated history. Handy for "what did
      * my partner say?" without regex-matching the sender field yourself.
      *
      * @param name Sender name (or substring) to match.
@@ -773,9 +799,8 @@ export class BotSDK {
      */
     getChatFrom(name: string, opts: { limit?: number } = {}): GameMessage[] {
         const { limit = 20 } = opts;
-        const needle = name.toLowerCase();
         const filtered = this.chatHistory.all().filter(m =>
-            m.sender !== '' && m.sender.toLowerCase().includes(needle)
+            m.sender !== '' && matchesPlayerName(name, m.sender)
         );
         return limit > 0 ? filtered.slice(-limit) : filtered;
     }
@@ -786,7 +811,8 @@ export class BotSDK {
      * The easy way to coordinate two bots: `sdk.say('ready'); const reply =
      * await sdk.waitForChat({ from: 'partner', timeout: 60000 });`
      *
-     * @param opts.from Only accept this sender (case-insensitive substring).
+     * @param opts.from Only accept this sender (case-insensitive substring of
+     *   the display or login name).
      * @param opts.matching Only accept messages whose text matches this pattern.
      * @param opts.types Chat type codes to accept (default player chat: 1/2/3/6/7).
      * @param opts.includeSelf Accept your own messages (default false).
@@ -802,12 +828,11 @@ export class BotSDK {
     } = {}): Promise<GameMessage | null> {
         const { from, matching, types = PLAYER_CHAT_TYPES, includeSelf = false, timeout = 30000 } = opts;
         const typeSet = new Set(types);
-        const needle = from?.toLowerCase();
         const pattern = typeof matching === 'string' ? new RegExp(matching, 'i') : matching;
         const accepts = (m: GameMessage) =>
             typeSet.has(m.type) &&
             (includeSelf || !m.fromSelf) &&
-            (!needle || m.sender.toLowerCase().includes(needle)) &&
+            (!from || matchesPlayerName(from, m.sender)) &&
             (!pattern || pattern.test(m.text));
 
         // Private cursor starting "now" — does not consume getNewChat's cursor.
@@ -948,7 +973,7 @@ export class BotSDK {
     /** Find a nearby player by name pattern (shortest matching name wins, then nearest; reachable preferred). */
     findNearbyPlayer(pattern: string | RegExp, options?: FindOptions): NearbyPlayer | null {
         if (!this.state) return null;
-        return applyFindOptions(shortestNameMatch(this.state.nearbyPlayers, pattern), options);
+        return applyFindOptions(shortestNameMatch(this.state.nearbyPlayers, pattern, playerNameForms), options);
     }
 
     /** Get all nearby players, nearest first. */

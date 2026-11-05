@@ -76,16 +76,18 @@ fi
 
 # Run migrations (idempotent - only applies pending migrations)
 echo "Running database migrations..."
+cd /opt/server/engine && bun tools/server/backup-playtime-migration.ts /opt/server/data
 cd /opt/server/engine && bun run sqlite:migrate
 
 # === PLAYER SAVES ===
 # Create players directory on volume if it doesn't exist
 mkdir -p /opt/server/data/players
 
-# If there are existing player saves in ephemeral storage, move them to volume
+# The volume is the only source of saves. Anything the image shipped is local dev
+# state that slipped past .dockerignore: never merge it in, or a stranger who
+# registers one of those names gets that character (v191 seeded ~140 test saves).
 if [ -d /opt/server/engine/data/players ] && [ ! -L /opt/server/engine/data/players ]; then
-    # Copy any existing saves to volume (won't overwrite existing)
-    cp -rn /opt/server/engine/data/players/* /opt/server/data/players/ 2>/dev/null || true
+    echo "WARNING: image contains engine/data/players ($(find /opt/server/engine/data/players -name '*.sav' | wc -l) saves) - discarding"
     rm -rf /opt/server/engine/data/players
 fi
 

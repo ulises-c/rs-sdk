@@ -1,4 +1,5 @@
 import { exchangeInventoryButton } from '#/engine/market/GrandExchange.js';
+import { clanInvButton } from '#/engine/clan/ClanHooks.js';
 import Component from '#/cache/config/Component.js';
 import Player from '#/engine/entity/Player.js';
 import ScriptProvider from '#/engine/script/ScriptProvider.js';
@@ -30,6 +31,8 @@ export default class InvButtonHandler extends ClientGameMessageHandler<InvButton
             // bad client: not a valid interface option
             return false;
         }
+
+        if (clanInvButton(player, comId, slot, obj, message.op)) return true;
 
         const listener = player.invListeners.find(l => l.com === comId);
         const inv = player.getInventoryFromListener(listener);

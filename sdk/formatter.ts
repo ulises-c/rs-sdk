@@ -227,7 +227,7 @@ export function formatWorldState(
     }
 
     // Interface state (crafting menus, etc.)
-    if (state.interface && state.interface.isOpen && !state.ge?.isOpen) {
+    if (state.interface && state.interface.isOpen && !state.ge?.isOpen && !state.clanStorage?.isOpen) {
         lines.push('');
         lines.push(`## Interface (id: ${state.interface.interfaceId})`);
         if (state.interface.options.length > 0) {
@@ -252,6 +252,26 @@ export function formatWorldState(
         if (ge.input) lines.push(`Waiting for numeric ${ge.input} input.`);
         if (ge.error || ge.notice) lines.push(ge.error ? `GE error: ${ge.error}` : ge.notice);
         lines.push('Use bot.placeGEOffer / cancelGEOffer / collectGEOffer / collectGE; sdk.getGEState() has full private state. Trading requires this physical exchange session.');
+    }
+
+    if (state.clanStorage?.isOpen && state.modalOpen) {
+        const c = state.clanStorage;
+        lines.push('', `## Clan storage: ${c.clan.name} (${c.capacity.used}/${c.capacity.max} kinds, revision ${c.storeRevision})`);
+        lines.push(`Rank: ${c.rankName}${c.effectiveRank < c.rank ? ` (acting rank ${c.effectiveRank} until the promotion cooldown ends)` : ''}; deposit ${c.canDeposit ? 'allowed' : 'not allowed'}; withdraw as ${c.noteMode ? 'notes' : 'items'}`);
+        const wait = (until: number | null) => (until ? `${Math.max(1, Math.ceil((until - c.serverTime) / 60_000))}m` : '');
+        if (c.cooldowns.newMember) lines.push(`New member: withdrawals in ${wait(c.cooldowns.newMember)}`);
+        if (c.cooldowns.promotion) lines.push(`Promotion applies in ${wait(c.cooldowns.promotion)}`);
+        for (const i of c.items) lines.push(`  [${i.slot}] ${i.name || 'item ' + i.id} x${i.count} (id ${i.id})${i.canWithdraw ? '' : ` - ${i.reason}${i.cooldownUntil ? ' ' + wait(i.cooldownUntil) : ''}`}`);
+        if (c.input) lines.push(`Waiting for a ${c.input} amount.`);
+        if (c.error || c.notice) lines.push(c.error ? `Clan storage error: ${c.error}` : c.notice);
+        lines.push('Use bot.clanDeposit / clanDepositInventory / clanWithdraw / closeClanStorage; sdk.getClanStorageState() has the full state.');
+    }
+
+    if (state.clan) {
+        const online = state.clan.members.filter(m => m.online).map(m => `${m.name} (${m.rankName})`);
+        lines.push('', `## Clan: ${state.clan.clan.name} (${state.clan.memberCount} members, ${state.clan.onlineCount} online)`);
+        if (online.length) lines.push(`Online: ${online.join(', ')}`);
+        lines.push('Clan chat: sdk.sendClanChat(text); received lines: sdk.getClanChat().');
     }
 
     // Shop state
@@ -480,4 +500,108 @@ export function formatWorldState(
     }
 
     return lines.join('\n');
+}
+
+export type WorldDetail = 'brief' | 'full';
+
+/** A capped list that says how much it left out. */
+export interface WorldList<T> { total: number; items: T[] }
+
+/**
+ * Structured world snapshot for execute_code's structuredContent. Every key is
+ * always present (null when there's nothing), and lists are capped by `detail`
+ * alone - never by how much happens to be nearby - so code written against a
+ * small probe keeps working on a crowded tile.
+ */
+export interface WorldSummary {
+    tick: number;
+    inGame: boolean;
+    stateAgeMs: number | null;
+    player: {
+        name: string; combatLevel: number; x: number; z: number; level: number;
+        hp: number; maxHp: number; runEnergy: number; isDead: boolean;
+        inCombat: boolean; combatTargetIndex: number | null;
+    } | null;
+    skills: { name: string; level: number; baseLevel: number; xp: number }[];
+    inventory: { freeSlots: number; items: { slot: number; id: number; name: string; count: number }[] };
+    equipment: { slot: number; id: number; name: string }[];
+    dialog: { text: string | null; isWaiting: boolean; options: { index: number; text: string }[] } | null;
+    /** `options` dispatch by componentId (sdk.clickInterfaceOption), not by their display index. */
+    modal: { kind: 'shop' | 'bank' | 'trade' | 'ge' | 'clanStorage' | 'interface'; interfaceId: number; options: { componentId: number; text: string }[] } | null;
+    nearby: {
+        npcs: WorldList<{ index: number; id: number; name: string; combatLevel: number; x: number; z: number; distance: number; hp: number | null; maxHp: number | null; inCombat: boolean; reachable: boolean | null; options: string[] }>;
+        players: WorldList<{ index: number; name: string; combatLevel: number; x: number; z: number; distance: number }>;
+        locs: WorldList<{ id: number; name: string; x: number; z: number; distance: number; reachable: boolean | null; options: string[] }>;
+        groundItems: WorldList<{ id: number; name: string; count: number; x: number; z: number; distance: number; reachable: boolean | null }>;
+    };
+    /** Messages newer than `sinceTick`, oldest first. */
+    messages: { chat: { from: string; text: string; private: boolean }[]; system: string[] };
+}
+
+const WORLD_LIMITS: Record<WorldDetail, { nearby: number; messages: number }> = {
+    brief: { nearby: 10, messages: 5 },
+    full: { nearby: 50, messages: 50 },
+};
+
+export function summarizeWorldState(
+    state: BotWorldState,
+    stateAgeMs?: number,
+    options?: { sinceTick?: number; detail?: WorldDetail }
+): WorldSummary {
+    const limits = WORLD_LIMITS[options?.detail ?? 'brief'];
+    const list = <S, T>(source: S[] | undefined, map: (item: S) => T): WorldList<T> =>
+        ({ total: source?.length ?? 0, items: (source ?? []).slice(0, limits.nearby).map(map) });
+    const stripCodes = (s: string) => s.replace(/@\w+@/g, '');
+    const fresh = (state.gameMessages ?? []).filter(m => m.tick > (options?.sinceTick ?? -1));
+    const p = state.player;
+
+    let modal: WorldSummary['modal'] = null;
+    const iface = state.interface?.isOpen ? state.interface : null;
+    const kind = state.trade?.isOpen ? 'trade' : state.ge?.isOpen ? 'ge' : state.clanStorage?.isOpen ? 'clanStorage' : state.shop?.isOpen ? 'shop' : state.bank?.isOpen ? 'bank' : iface || state.modalOpen ? 'interface' : null;
+    if (kind) {
+        modal = {
+            kind,
+            interfaceId: iface?.interfaceId ?? state.modalInterface,
+            options: (iface?.options ?? []).map(o => ({ componentId: o.componentId, text: o.text })),
+        };
+    }
+
+    return {
+        tick: state.tick,
+        inGame: state.inGame,
+        stateAgeMs: stateAgeMs ?? null,
+        player: p ? {
+            name: p.name, combatLevel: p.combatLevel, x: p.worldX, z: p.worldZ, level: p.level,
+            hp: p.hp, maxHp: p.maxHp, runEnergy: p.runEnergy, isDead: p.isDead,
+            inCombat: p.combat.inCombat, combatTargetIndex: p.combat.inCombat ? p.combat.targetIndex : null,
+        } : null,
+        skills: (state.skills ?? []).filter(s => !/^Stat\d+$/i.test(s.name))
+            .map(s => ({ name: s.name, level: s.level, baseLevel: s.baseLevel, xp: s.experience })),
+        inventory: {
+            freeSlots: 28 - (state.inventory ?? []).length,
+            items: (state.inventory ?? []).map(i => ({ slot: i.slot, id: i.id, name: i.name, count: i.count })),
+        },
+        equipment: (state.equipment ?? []).map(i => ({ slot: i.slot, id: i.id, name: i.name })),
+        dialog: state.dialog?.isOpen ? {
+            text: state.dialog.text ?? null,
+            isWaiting: state.dialog.isWaiting,
+            options: state.dialog.options.map(o => ({ index: o.index, text: o.text })),
+        } : null,
+        modal,
+        nearby: {
+            npcs: list(state.nearbyNpcs, n => ({
+                index: n.index, id: n.id, name: n.name, combatLevel: n.combatLevel, x: n.x, z: n.z, distance: n.distance,
+                hp: n.hp, maxHp: n.maxHp, inCombat: n.inCombat, reachable: n.reachable ?? null, options: n.options ?? [],
+            })),
+            players: list(state.nearbyPlayers, pl => ({ index: pl.index, name: pl.name, combatLevel: pl.combatLevel, x: pl.x, z: pl.z, distance: pl.distance })),
+            locs: list(state.nearbyLocs, l => ({ id: l.id, name: l.name, x: l.x, z: l.z, distance: l.distance, reachable: l.reachable ?? null, options: l.options ?? [] })),
+            groundItems: list(state.groundItems, g => ({ id: g.id, name: g.name, count: g.count, x: g.x, z: g.z, distance: g.distance, reachable: g.reachable ?? null })),
+        },
+        messages: {
+            chat: fresh.filter(m => isPlayerChat(m.type) && m.sender && !m.fromSelf).slice(-limits.messages)
+                .map(m => ({ from: m.sender, text: stripCodes(m.text), private: m.type === 3 || m.type === 7 })),
+            system: fresh.filter(m => !isPlayerChat(m.type)).slice(-limits.messages)
+                .map(m => (m.sender ? `${m.sender}: ` : '') + stripCodes(m.text)),
+        },
+    };
 }

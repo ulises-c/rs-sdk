@@ -106,6 +106,7 @@ import FriendlistLoaded from '#/network/game/server/model/FriendlistLoaded.js';
 import HashTable from '#/datastruct/HashTable.js';
 import Midi from '#/cache/midi/Midi.js';
 import { WorldQueue } from '#/engine/WorldQueue.js';
+import { clanTick } from '#/engine/clan/ClanHooks.js';
 
 const priv = forge.pki.privateKeyFromPem(fs.readFileSync('data/config/private.pem', 'ascii'));
 
@@ -689,7 +690,7 @@ class World {
 
         for (const player of this.playerLoop.all()) {
             try {
-                player.playtime++;
+                player.advancePlaytime(this.tickRate > 0 ? this.tickRate : World.TICKRATE);
 
                 if (this.currentTick % World.AFK_EVENTRATE === 0) {
                     player.afkEventReady = Math.random() < (player.zonesAfk() ? World.AFK_CHANCE2 : World.AFK_CHANCE1);
@@ -803,12 +804,19 @@ class World {
                 player.reorient();
                 if (!player.busy() && !player.delayed && !player.loggingOut) player.recoverItems();
                 if (Environment.GE_ENABLED) tickExchange(player);
+                clanTick(player);
 
                 // - run energy
                 player.updateEnergy();
 
                 if ((player.masks & PlayerInfoProt.EXACT_MOVE) == 0) {
                     player.validateDistanceWalked();
+                }
+
+                if (!player.delayed) {
+                    player.safeX = player.x;
+                    player.safeZ = player.z;
+                    player.safeLevel = player.level;
                 }
             } catch (err) {
                 console.error(err);

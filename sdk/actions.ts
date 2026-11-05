@@ -5,6 +5,8 @@
 import { BotSDK } from './index';
 import { throwIfExecutionAborted, withExecutionDeadline } from './execution-context';
 import { GEActions } from './ge-actions';
+import { ClanStorageActions, CLAN_STORAGE_ROOT_ID } from './clan-actions';
+import type { ClanStorageResult } from './clan-types';
 import type { GEOfferRequest, GEActionResult } from './ge-types';
 import { ActionHelpers, ALREADY_FIGHTING_REFUSALS, NO_RUNES_REFUSALS } from './actions-helpers';
 import { findDoorsAlongPath, isTileWalkable } from './pathfinding';
@@ -74,6 +76,7 @@ import {
     classifyQuantity,
     countItems,
     exactNamePattern,
+    matchesPlayerName,
     nextShopStep,
     resolveInterfaceOption,
     resolveSkillDialogProduct,
@@ -91,6 +94,7 @@ import {
 // Ids from server/content/pack/interface.pack.
 const NEVER_AUTO_CLOSE = new Set([
     40000, // grand_exchange - deliberate offer/draft session (reserved block, see server/PATCHES.md)
+    CLAN_STORAGE_ROOT_ID, // clan_storage - closing would drop a pending Withdraw-X/Deposit-X
     3323, // trademain - auto-close would silently decline a player trade
     3443, // tradeconfirm - second trade screen, same risk
     6412, // duel_confirm - same risk for duels
@@ -109,11 +113,28 @@ const PICKPOCKET_ACK_TICKS = 3;
 export class BotActions {
     private helpers: ActionHelpers;
     private ge: GEActions;
+    private clan: ClanStorageActions;
 
     constructor(private sdk: BotSDK) {
         this.helpers = new ActionHelpers(sdk);
         this.ge = new GEActions(sdk, this);
+        this.clan = new ClanStorageActions(sdk, this);
     }
+
+    /** Open the clan storage: opens the nearest bank if needed, then clicks the bank screen's Clan storage button. */
+    async openClanStorage(timeout: number = 20_000): Promise<ClanStorageResult> { return this.clan.open(timeout); }
+
+    /** Deposit an item (id, exact name or pattern) from the backpack into the open clan storage; verifies the backpack delta. */
+    async clanDeposit(item: number | string | RegExp, amount: number | 'all' = 'all', timeout: number = 10_000): Promise<ClanStorageResult> { return this.clan.deposit(item, amount, timeout); }
+
+    /** Deposit every storable backpack item into the open clan storage. */
+    async clanDepositInventory(timeout: number = 10_000): Promise<ClanStorageResult> { return this.clan.depositInventory(timeout); }
+
+    /** Withdraw from the open clan storage; refuses locally with reason 'rank' or 'cooldown' when the screen says you can't (force: true asks the server anyway). */
+    async clanWithdraw(item: number | string | RegExp, amount: number | 'all' = 'all', options: { noted?: boolean; force?: boolean } = {}, timeout: number = 10_000): Promise<ClanStorageResult> { return this.clan.withdraw(item, amount, options, timeout); }
+
+    /** Close the clan storage screen. */
+    async closeClanStorage(timeout: number = 5_000): Promise<ClanStorageResult> { return this.clan.close(timeout); }
 
     /** Walk to the physical exchange and open it. Requires updated client/server GE state support. */
     async openGE(timeout: number = 15_000): Promise<GEActionResult> { return this.ge.open(timeout); }
@@ -1766,8 +1787,15 @@ export class BotActions {
 
     private async _openBankOnce(timeout: number): Promise<OpenBankResult> {
         const state = this.sdk.getState();
-        if (state?.interface?.isOpen) {
+        // Only the bank screen counts: another open interface (e.g. clan storage) is not the bank.
+        if (state?.bank?.isOpen) {
             return { success: true, message: 'Bank already open' };
+        }
+        if (state?.modalOpen && state.clanStorage) {
+            // The clan screen's Bank button reopens the bank in place.
+            await this.sdk.sendClickComponent(state.clanStorage.controls.bank);
+            const reopened = await this.sdk.waitForCondition(s => !!s.bank?.isOpen, Math.min(timeout, 5000)).catch(() => null);
+            if (reopened) return { success: true, message: 'Bank opened from clan storage' };
         }
 
         await this.dismissBlockingUI();
@@ -2165,8 +2193,7 @@ export class BotActions {
         const matchesTarget = (name: string | null | undefined): boolean => {
             if (!name) return false;
             if (typeof target === 'object' && 'index' in target) return exactNamePattern(target.name).test(name);
-            if (typeof target === 'string') return new RegExp(target, 'i').test(name);
-            return target.test(name);
+            return matchesPlayerName(typeof target === 'string' ? new RegExp(target, 'i') : target, name);
         };
 
         const open = this.sdk.getTradeState();
@@ -2461,8 +2488,7 @@ export class BotActions {
 
         const fromMatches = (name: string): boolean => {
             if (!from) return true;
-            if (typeof from === 'string') return name.toLowerCase().includes(from.toLowerCase());
-            return from.test(name);
+            return matchesPlayerName(from, name);
         };
 
         while (true) {

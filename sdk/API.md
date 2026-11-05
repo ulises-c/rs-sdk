@@ -12,6 +12,29 @@
 
 ## BotActions (high-level)
 
+### Other
+
+| Signature | Description |
+|---|---|
+| `async openClanStorage(timeout: number = 20_000): Promise<ClanStorageResult>` | Open the clan storage: opens the nearest bank if needed, then clicks the bank screen's Clan storage button. |
+| `async closeClanStorage(timeout: number = 5_000): Promise<ClanStorageResult>` | Close the clan storage screen. |
+| `async useItemOnLoc(item: InventoryItem \| string \| RegExp, loc: NearbyLoc \| string \| RegExp, options: { timeout?: number } = {}): Promise<UseItemOnLocResult>` | Use an inventory item on a nearby location (e.g., fish on range, ore on furnace). Walks to the location first (handling doors), then uses the item. |
+| `async useItemOnNpc(item: InventoryItem \| string \| RegExp, npc: NearbyNpc \| string \| RegExp, options: { timeout?: number } = {}): Promise<UseItemOnNpcResult>` | Use an inventory item on a nearby NPC (e.g., bones on altar keeper, item on NPC). Walks to the NPC first (handling doors), then uses the item. |
+| `async dropItem(target: InventoryItem \| string \| RegExp, amount: number \| 'all' = 'all'): Promise<DropItemResult>` | Drop inventory items by name, waiting for each drop to land before sending the next. `sendDropItem` on a slot the server has already emptied silently no-ops, so slot loops built on stale state lose most of their sends; this re-resolves the slot from fresh state every time. `amount` counts inventory slots (a whole stack drops as one). Pass `'all'` or `-1` to drop every matching slot. |
+| `async closeInterface(timeout: number = 5000): Promise<ActionResult>` | Close any open modal interface (bank, book, quest scroll, etc.). |
+
+### Banking
+
+| Signature | Description |
+|---|---|
+| `async clanDeposit(item: number \| string \| RegExp, amount: number \| 'all' = 'all', timeout: number = 10_000): Promise<ClanStorageResult>` | Deposit an item (id, exact name or pattern) from the backpack into the open clan storage; verifies the backpack delta. |
+| `async clanDepositInventory(timeout: number = 10_000): Promise<ClanStorageResult>` | Deposit every storable backpack item into the open clan storage. |
+| `async clanWithdraw(item: number \| string \| RegExp, amount: number \| 'all' = 'all', options: { noted?: boolean; force?: boolean } = {}, timeout: number = 10_000): Promise<ClanStorageResult>` | Withdraw from the open clan storage; refuses locally with reason 'rank' or 'cooldown' when the screen says you can't (force: true asks the server anyway). |
+| `async openBank(timeout: number = 10000): Promise<OpenBankResult>` | Open a bank booth or talk to a banker. |
+| `async closeBank(timeout: number = 5000): Promise<ActionResult>` | Close the bank interface. |
+| `async depositItem(target: InventoryItem \| string \| RegExp, amount: number = -1): Promise<BankDepositResult>` | Deposit an item into the bank. Use -1 for all. A pattern with `-1` deposits every distinct matching item: an alternation like `/^(shark\|burnt shark)$/i` covers both ids, not just whichever matched first. |
+| `async withdrawItem(target: BankItem \| string \| RegExp \| number, amount: number = 1, options: { asNote?: boolean } = {}): Promise<BankWithdrawResult>` | Withdraw an item from the bank by slot, name, or BankItem. `asNote: true` withdraws as a banknote: the note/item toggle is synced first (and synced back to items on the next plain withdrawal), and completion is detected on the noted item's arrival. Items the engine cannot note are withdrawn unnoted with a game message; the result then carries the unnoted item. |
+
 ### Grand Exchange
 
 | Signature | Description |
@@ -37,15 +60,6 @@
 | Signature | Description |
 |---|---|
 | `async openDoor(target?: NearbyLoc \| string \| RegExp): Promise<OpenDoorResult>` | Open a door or gate, walking to it if needed. |
-
-### Other
-
-| Signature | Description |
-|---|---|
-| `async useItemOnLoc(item: InventoryItem \| string \| RegExp, loc: NearbyLoc \| string \| RegExp, options: { timeout?: number } = {}): Promise<UseItemOnLocResult>` | Use an inventory item on a nearby location (e.g., fish on range, ore on furnace). Walks to the location first (handling doors), then uses the item. |
-| `async useItemOnNpc(item: InventoryItem \| string \| RegExp, npc: NearbyNpc \| string \| RegExp, options: { timeout?: number } = {}): Promise<UseItemOnNpcResult>` | Use an inventory item on a nearby NPC (e.g., bones on altar keeper, item on NPC). Walks to the NPC first (handling doors), then uses the item. |
-| `async dropItem(target: InventoryItem \| string \| RegExp, amount: number \| 'all' = 'all'): Promise<DropItemResult>` | Drop inventory items by name, waiting for each drop to land before sending the next. `sendDropItem` on a slot the server has already emptied silently no-ops, so slot loops built on stale state lose most of their sends; this re-resolves the slot from fresh state every time. `amount` counts inventory slots (a whole stack drops as one). Pass `'all'` or `-1` to drop every matching slot. |
-| `async closeInterface(timeout: number = 5000): Promise<ActionResult>` | Close any open modal interface (bank, book, quest scroll, etc.). |
 
 ### Woodcutting & Firemaking
 
@@ -83,15 +97,6 @@
 | `async openShop(target?: NearbyNpc \| string \| RegExp): Promise<ActionResult>` | Open a shop by trading with an NPC. Defaults to the nearest shopkeeper. |
 | `async buyFromShop(target: ShopItem \| string \| RegExp, amount: number = 1): Promise<ShopResult>` | Buy an item from an open shop. `success` is true only when the full requested amount arrived; a short fill (out of stock, out of coins, full inventory) returns `success: false` with `partial: true` and the actual `amountBought`. |
 | `async sellToShop(target: InventoryItem \| ShopItem \| string \| RegExp, amount: SellAmount = 1): Promise<ShopSellResult>` | Sell an item to an open shop. `success` is true only when the full requested amount was sold; a short fill returns `success: false` with `partial: true` and `amountSold`. |
-
-### Banking
-
-| Signature | Description |
-|---|---|
-| `async openBank(timeout: number = 10000): Promise<OpenBankResult>` | Open a bank booth or talk to a banker. |
-| `async closeBank(timeout: number = 5000): Promise<ActionResult>` | Close the bank interface. |
-| `async depositItem(target: InventoryItem \| string \| RegExp, amount: number = -1): Promise<BankDepositResult>` | Deposit an item into the bank. Use -1 for all. A pattern with `-1` deposits every distinct matching item: an alternation like `/^(shark\|burnt shark)$/i` covers both ids, not just whichever matched first. |
-| `async withdrawItem(target: BankItem \| string \| RegExp \| number, amount: number = 1, options: { asNote?: boolean } = {}): Promise<BankWithdrawResult>` | Withdraw an item from the bank by slot, name, or BankItem. `asNote: true` withdraws as a banknote: the note/item toggle is synced first (and synced back to items on the next plain withdrawal), and completion is detected on the noted item's arrival. Items the engine cannot note are withdrawn unnoted with a game message; the result then carries the unnoted item. |
 
 ### Player Trading
 
@@ -174,12 +179,15 @@
 | `getReconnectAttempt(): number` | Get current reconnection attempt number. |
 | `getConnectionMode(): SDKConnectionMode` | Get connection mode (control or observe). |
 | `async isBotConnected(): Promise<boolean>` | Check if bot is currently connected to gateway. |
+| `getClanStorageState(): ClanStorageState \| null` | Clan storage screen state (opened from the bank screen's Clan storage button). Null when closed or unsupported. |
+| `getClanState(): ClanTabState \| null` | The clan side tab: clan, member and online counts, the roster (online first). Null when not in a clan. |
+| `getClanChat(opts: { limit?: number } = {}): ClanChatMessage[]` | Clan chat lines received (game messages `[Clan] Sender: text`), oldest first; includes your own. |
 | `getState(): BotWorldState \| null` | Get current game state snapshot. |
 | `getStateReceivedAt(): number` | Get timestamp when state was last received (ms since epoch) |
 | `getStateAge(): number` | Get age of current state in milliseconds |
 | `getChat(opts: { limit?: number; types?: readonly number[]; includeSelf?: boolean } = {}): GameMessage[]` | Read recent chat messages. Returns player chat (public + PMs) by default, newest last. Reads from the SDK's accumulated history — up to 500 messages retained since connect — so old lines survive both system spam (level-ups, combat) and the client's own 100-deep ring eviction. |
 | `getNewChat(opts: { types?: readonly number[]; includeSelf?: boolean } = {}): GameMessage[]` | Read only chat messages that have arrived since the last call (cursor-based, newest last). Repeat polls never re-show the same message — no need to hand-roll a baseline. The first call returns everything seen since connect. Excludes your own messages by default. |
-| `getChatFrom(name: string, opts: { limit?: number } = {}): GameMessage[]` | Read recent chat from a specific sender (case-insensitive, substring match on name), newest last, from the accumulated history. Handy for "what did my partner say?" without regex-matching the sender field yourself. |
+| `getChatFrom(name: string, opts: { limit?: number } = {}): GameMessage[]` | Read recent chat from a specific sender (case-insensitive, substring match on display or login name), newest last, from the accumulated history. Handy for "what did my partner say?" without regex-matching the sender field yourself. |
 | `getSkill(name: string): SkillState \| null` | Get a skill by name (case-insensitive; "hp"/"hitpoint" alias Hitpoints). |
 | `getSkillXp(name: string): number \| null` | Get XP for a skill by name. |
 | `getSkills(): SkillState[]` | Get all skills. |
@@ -246,19 +254,11 @@
 | `getGEState(): GEState \| null` | Private GE state while at an open physical exchange. Null when closed or unsupported. |
 | `async sendGESearch(query: string): Promise<ActionResult>` | Filter the open in-game GE catalogue. Success means dispatch; wait for the acknowledged query. |
 
-### On-Demand Scanning
-
-| Signature | Description |
-|---|---|
-| `async scanNearbyLocs(radius?: number): Promise<NearbyLoc[]>` | Scan for nearby locations with custom radius. Results are scoped to the player's current plane (each carries `level`); re-scan after climbing or descending rather than reusing old references. |
-| `async scanGroundItems(radius?: number): Promise<GroundItem[]>` | Scan for ground items on-demand. This is more efficient than constantly pushing this data in state updates. |
-| `async scanFindNearbyLoc(pattern: string \| RegExp, radius?: number): Promise<NearbyLoc \| null>` | Find a nearby location by name pattern (on-demand scan). |
-| `async scanFindGroundItem(pattern: string \| RegExp, radius?: number): Promise<GroundItem \| null>` | Find a ground item by name pattern (on-demand scan). |
-
 ### Raw Actions
 
 | Signature | Description |
 |---|---|
+| `async sendClanChat(text: string): Promise<ActionResult>` | Say a line in clan chat (public chat with a leading "/"; the server never shows it publicly). |
 | `async sendWalk(x: number, z: number, running: boolean = true): Promise<ActionResult>` | Send walk command to coordinates. |
 | `async sendInteractLoc(x: number, z: number, locId: number, option: number = 1): Promise<ActionResult>` | Interact with a location (tree, rock, door, etc). |
 | `async sendInteractNpc(npcIndex: number, option: number = 1): Promise<ActionResult>` | Interact with an NPC by index and option. |
@@ -304,6 +304,15 @@
 | `async sendBankWithdraw(slot: number, amount: number = 1): Promise<ActionResult>` | Withdraw item from bank by slot. |
 | `async sendScreenshot(timeout: number = 10000): Promise<string>` | Request a screenshot from the bot client. Returns the screenshot as a data URL (data:image/png;base64,...). |
 | `async sendFindPath(destX: number, destZ: number, maxWaypoints: number = 500): Promise<{ success: boolean; waypoints: Array<{ x: number; z: number; level: number }>; reachedDestination?: boolean; error?: string }>` | Find path to destination (async alias for findPath). |
+
+### On-Demand Scanning
+
+| Signature | Description |
+|---|---|
+| `async scanNearbyLocs(radius?: number): Promise<NearbyLoc[]>` | Scan for nearby locations with custom radius. Results are scoped to the player's current plane (each carries `level`); re-scan after climbing or descending rather than reusing old references. |
+| `async scanGroundItems(radius?: number): Promise<GroundItem[]>` | Scan for ground items on-demand. This is more efficient than constantly pushing this data in state updates. |
+| `async scanFindNearbyLoc(pattern: string \| RegExp, radius?: number): Promise<NearbyLoc \| null>` | Find a nearby location by name pattern (on-demand scan). |
+| `async scanFindGroundItem(pattern: string \| RegExp, radius?: number): Promise<GroundItem \| null>` | Find a ground item by name pattern (on-demand scan). |
 
 ### Pathfinding
 
